@@ -3,44 +3,44 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../helpers/helpers.php';
 
 class PerfilFinanciero {
-    private $id;
-    private $idUsuario;
-    private $ingresoMensual;
-    private $gastosIndispensablesTotal;
-    private $ahorroBase;
-    private $periodoPresupuesto;
-    private $fechaCreacion;
-    private $fechaActualizacion;
+    private $id_perfilfinanciero;
+    private $id_usuario;
+    private $ingreso_mensual;
+    private $total_gastos_indispensables;
+    private $ahorro_base;
+    private $periodo_presupuesto;
+    private $created_at;
+    private $update_at;
 
     public function __construct($datos = []) {
         if (!empty($datos)) {
-            $this->id = $datos['ID'] ?? null;
-            $this->idUsuario = $datos['ID_USUARIO'] ?? null;
-            $this->ingresoMensual = $datos['INGRESO_MENSUAL'] ?? null;
-            $this->gastosIndispensablesTotal = $datos['GASTOS_INDISPENSABLES_TOTAL'] ?? null;
-            $this->ahorroBase = $datos['AHORRO_BASE'] ?? null;
-            $this->periodoPresupuesto = $datos['PERIODO_PRESUPUESTO'] ?? null;
-            $this->fechaCreacion = $datos['FECHA_CREACION'] ?? null;
-            $this->fechaActualizacion = $datos['FECHA_ACTUALIZACION'] ?? null;
+            $this->id_perfilfinanciero = $datos['id_perfilfinanciero'] ?? $datos['ID_PERFILFINANCIERO'] ?? null;
+            $this->id_usuario = $datos['id_usuario'] ?? $datos['ID_USUARIO'] ?? null;
+            $this->ingreso_mensual = $datos['ingreso_mensual'] ?? $datos['INGRESO_MENSUAL'] ?? null;
+            $this->total_gastos_indispensables = $datos['total_gastos_indispensables'] ?? $datos['TOTAL_GASTOS_INDISPENSABLES'] ?? null;
+            $this->ahorro_base = $datos['ahorro_base'] ?? $datos['AHORRO_BASE'] ?? null;
+            $this->periodo_presupuesto = $datos['periodo_presupuesto'] ?? $datos['PERIODO_PRESUPUESTO'] ?? null;
+            $this->created_at = $datos['created_at'] ?? $datos['CREATED_AT'] ?? null;
+            $this->update_at = $datos['update_at'] ?? $datos['UPDATE_AT'] ?? null;
         }
     }
 
     // Getters
-    public function getId() { return $this->id; }
-    public function getIdUsuario() { return $this->idUsuario; }
-    public function getIngresoMensual() { return $this->ingresoMensual; }
-    public function getGastosIndispensablesTotal() { return $this->gastosIndispensablesTotal; }
-    public function getAhorroBase() { return $this->ahorroBase; }
-    public function getPeriodoPresupuesto() { return $this->periodoPresupuesto; }
-    public function getFechaCreacion() { return $this->fechaCreacion; }
-    public function getFechaActualizacion() { return $this->fechaActualizacion; }
+    public function getIdPerfilFinanciero() { return $this->id_perfilfinanciero; }
+    public function getIdUsuario() { return $this->id_usuario; }
+    public function getIngresoMensual() { return $this->ingreso_mensual; }
+    public function getTotalGastosIndispensables() { return $this->total_gastos_indispensables; }
+    public function getAhorroBase() { return $this->ahorro_base; }
+    public function getPeriodoPresupuesto() { return $this->periodo_presupuesto; }
+    public function getCreatedAt() { return $this->created_at; }
+    public function getUpdateAt() { return $this->update_at; }
 
     // Setters
-    public function setIdUsuario($idUsuario) { $this->idUsuario = $idUsuario; }
-    public function setIngresoMensual($ingresoMensual) { $this->ingresoMensual = $ingresoMensual; }
-    public function setGastosIndispensablesTotal($gastosIndispensablesTotal) { $this->gastosIndispensablesTotal = $gastosIndispensablesTotal; }
-    public function setAhorroBase($ahorroBase) { $this->ahorroBase = $ahorroBase; }
-    public function setPeriodoPresupuesto($periodoPresupuesto) { $this->periodoPresupuesto = $periodoPresupuesto; }
+    public function setIdUsuario($id_usuario) { $this->id_usuario = $id_usuario; }
+    public function setIngresoMensual($ingreso_mensual) { $this->ingreso_mensual = $ingreso_mensual; }
+    public function setTotalGastosIndispensables($total_gastos_indispensables) { $this->total_gastos_indispensables = $total_gastos_indispensables; }
+    public function setAhorroBase($ahorro_base) { $this->ahorro_base = $ahorro_base; }
+    public function setPeriodoPresupuesto($periodo_presupuesto) { $this->periodo_presupuesto = $periodo_presupuesto; }
 
     /**
      * Guarda o actualiza el perfil financiero
@@ -48,28 +48,28 @@ class PerfilFinanciero {
      */
     public function guardar() {
         $datos = [
-            'ID_USUARIO' => $this->idUsuario,
-            'INGRESO_MENSUAL' => $this->ingresoMensual,
-            'GASTOS_INDISPENSABLES_TOTAL' => $this->gastosIndispensablesTotal,
-            'AHORRO_BASE' => $this->ahorroBase,
-            'PERIODO_PRESUPUESTO' => $this->periodoPresupuesto,
-            'FECHA_ACTUALIZACION' => date('Y-m-d H:i:s')
+            'id_usuario' => $this->id_usuario,
+            'ingreso_mensual' => $this->ingreso_mensual,
+            'total_gastos_indispensables' => $this->total_gastos_indispensables,
+            'ahorro_base' => $this->ahorro_base,
+            'periodo_presupuesto' => $this->periodo_presupuesto,
+            'update_at' => date('Y-m-d H:i:s')
         ];
 
-        if ($this->id) {
-            return supabaseRequest('PUT', 'PERFIL_FINANCIERO', $datos, ['ID' => "eq.$this->id"]);
+        if ($this->id_perfilfinanciero) {
+            return supabaseRequest('PUT', 'perfil_financiero', $datos, ['id_perfilfinanciero' => "eq." . $this->id_perfilfinanciero]);
         } else {
-            return supabaseRequest('POST', 'PERFIL_FINANCIERO', $datos);
+            return supabaseRequest('POST', 'perfil_financiero', $datos);
         }
     }
 
     /**
      * Busca el perfil financiero de un usuario
-     * @param int $idUsuario ID del usuario
+     * @param int $id_usuario ID del usuario
      * @return PerfilFinanciero|null
      */
-    public static function buscarPorIdUsuario($idUsuario) {
-        $respuesta = supabaseRequest('GET', 'PERFIL_FINANCIERO', [], ['ID_USUARIO' => "eq.$idUsuario"]);
+    public static function buscarPorIdUsuario($id_usuario) {
+        $respuesta = supabaseRequest('GET', 'perfil_financiero', [], ['id_usuario' => "eq.$id_usuario"]);
         if ($respuesta['exito'] && !empty($respuesta['datos'])) {
             return new PerfilFinanciero($respuesta['datos'][0]);
         }
@@ -78,14 +78,14 @@ class PerfilFinanciero {
 
     public function toArray() {
         return [
-            'ID' => $this->id,
-            'ID_USUARIO' => $this->idUsuario,
-            'INGRESO_MENSUAL' => $this->ingresoMensual,
-            'GASTOS_INDISPENSABLES_TOTAL' => $this->gastosIndispensablesTotal,
-            'AHORRO_BASE' => $this->ahorroBase,
-            'PERIODO_PRESUPUESTO' => $this->periodoPresupuesto,
-            'FECHA_CREACION' => $this->fechaCreacion,
-            'FECHA_ACTUALIZACION' => $this->fechaActualizacion
+            'id_perfilfinanciero' => $this->id_perfilfinanciero,
+            'id_usuario' => $this->id_usuario,
+            'ingreso_mensual' => $this->ingreso_mensual,
+            'total_gastos_indispensables' => $this->total_gastos_indispensables,
+            'ahorro_base' => $this->ahorro_base,
+            'periodo_presupuesto' => $this->periodo_presupuesto,
+            'created_at' => $this->created_at,
+            'update_at' => $this->update_at
         ];
     }
 }

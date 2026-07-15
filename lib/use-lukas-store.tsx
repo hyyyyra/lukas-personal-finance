@@ -25,14 +25,23 @@ const INITIAL_STATE: LukasState = {
   expenses: [],
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/'
+
 interface LukasContextValue extends LukasState {
   hydrated: boolean
-  login: (user: UserProfile) => void
+  login: (credentials: {
+    id_usuario: number  
+    email: string
+    password?: string
+    nombres?: string
+    apellidos?: string
+    provider?: string
+  }) => Promise<void>
   logout: () => void
-  completeOnboarding: (essentials: EssentialData) => void
-  updateEssentials: (essentials: EssentialData) => void
-  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => void
-  removeExpense: (id: string) => void
+  completeOnboarding: (essentials: EssentialData) => Promise<void>
+  updateEssentials: (essentials: EssentialData) => Promise<void>
+  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>
+  removeExpense: (id: string) => Promise<void>
   reset: () => void
 }
 
@@ -42,7 +51,61 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<LukasState>(INITIAL_STATE)
   const [hydrated, setHydrated] = useState(false)
 
-  // Cargar desde caché (localStorage) al montar
+  // Cargar datos del usuario desde la base de datos
+  const loadUserData = useCallback(async (email: string) => {
+    try {
+      // 1. Obtener perfil y gastos indispensables
+      const resEssentials = await fetch(`${API_BASE_URL}/usuario/esenciales.php?email=${email}`)
+      let onboardingComplete = false
+      let essentials = DEFAULT_ESSENTIALS
+
+      if (resEssentials.ok) {
+        const data = await resEssentials.json()
+        if (data.perfil) {
+          onboardingComplete = true
+          essentials = {
+            monthlyIncome: Number(data.perfil.ingreso_mensual),
+            essentialExpenses: Number(data.perfil.total_gastos_indispensables),
+            baseSavings: Number(data.perfil.ahorro_base),
+            budgetPeriod: data.perfil.periodo_presupuesto,
+            essentialItems: (data.gastos_indispensables || []).map((item: any) => ({
+              id: String(item.id_gastoindispensable),
+              label: item.etiqueta,
+              amount: Number(item.monto),
+            })),
+          }
+        }
+      }
+
+      // 2. Obtener gastos variables
+      let expenses: Expense[] = []
+      const resExpenses = await fetch(`${API_BASE_URL}/gastos.php?email=${email}`)
+      if (resExpenses.ok) {
+        const data = await resExpenses.json()
+        if (data.gastos) {
+          expenses = data.gastos.map((g: any) => ({
+            id: String(g.id_gastosvariables),
+            etiqueta: g.etiqueta,
+            amount: Number(g.monto),
+            category: g.categoria,
+            method: g.metodo,
+            createdAt: g.created_at,
+          }))
+        }
+      }
+
+      setState((prev) => ({
+        ...prev,
+        onboardingComplete,
+        essentials,
+        expenses,
+      }))
+    } catch (error) {
+      console.error('Error cargando datos del backend:', error)
+    }
+  }, [])
+
+  // Cargar desde caché (localStorage) al montar y actualizar con el backend si hay sesión activa
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY)
@@ -57,12 +120,16 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
             essentialItems: parsed.essentials?.essentialItems ?? [],
           },
         })
+
+        if (parsed.user?.email) {
+          loadUserData(parsed.user.email)
+        }
       }
     } catch (error) {
-      console.log('[v0] Error leyendo caché de Lukas:', error)
+      console.log('Error leyendo caché de Lukas:', error)
     }
     setHydrated(true)
-  }, [])
+  }, [loadUserData])
 
   // Persistir en caché ante cualquier cambio
   useEffect(() => {
@@ -70,49 +137,168 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     } catch (error) {
-      console.log('[v0] Error guardando caché de Lukas:', error)
+      console.log('Error guardando caché de Lukas:', error)
     }
   }, [state, hydrated])
 
-  const login = useCallback((user: UserProfile) => {
-    setState((prev) => ({ ...prev, user }))
-  }, [])
+  const login = useCallback(async (credentials: {
+    id_usuario: number
+    email: string
+    password?: string
+    nombres?: string
+    apellidos?: string
+    provider?: string
+  }) => {
+    const { email, password = 'social_login_dummy_123456', nombres, apellidos } = credentials
+
+    const body: Record<string, string> = {
+      email,
+      password,
+      nombres: nombres ?? "",
+      apellidos: apellidos ?? "",
+    }
+
+    console.log(`${API_BASE_URL}/auth/login.php`);
+    const res = await fetch(`${API_BASE_URL}/auth/login.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+      
+    //FTR: Controla respuesta de inicio de sesión fallida. 
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error en el inicio de sesión')
+    }
+
+    const data = await res.json()
+    if (!data.usuario) {
+      throw new Error('Respuesta inválida del servidor')
+    }
+
+    const userProfile: UserProfile = {
+      id_usuario: data.usuario.id_usuario,
+      nombre: data.usuario.nombres,
+      apellido: data.usuario.apellidos,
+      email: data.usuario.email,
+      provider: data.usuario.provider
+    }
+
+    setState((prev) => ({ ...prev, user: userProfile }))
+    await loadUserData(String(userProfile.id_usuario))
+  }, [loadUserData])
 
   const logout = useCallback(() => {
-    setState((prev) => ({ ...prev, user: null }))
+    setState(INITIAL_STATE)
   }, [])
 
-  const completeOnboarding = useCallback((essentials: EssentialData) => {
-    setState((prev) => ({ ...prev, essentials, onboardingComplete: true }))
-  }, [])
+  const completeOnboarding = useCallback(async (essentials: EssentialData) => {
+    if (!state.user) return
+    const id_usuario = state.user.id_usuario
 
-  const updateEssentials = useCallback((essentials: EssentialData) => {
-    setState((prev) => ({ ...prev, essentials }))
-  }, [])
+    const body = {
+      ingreso_mensual: essentials.monthlyIncome,
+      total_gastos_indispensables: essentials.essentialExpenses,
+      ahorro_base: essentials.baseSavings,
+      periodo_presupuesto: essentials.budgetPeriod,
+      gastos_indispensables: essentials.essentialItems.map((item) => ({
+        etiqueta: item.label,
+        monto: item.amount,
+      })),
+    }
 
-  const addExpense = useCallback(
-    (expense: Omit<Expense, 'id' | 'createdAt'>) => {
-      setState((prev) => ({
-        ...prev,
-        expenses: [
-          {
-            ...expense,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-          },
-          ...prev.expenses,
-        ],
-      }))
-    },
-    [],
-  )
+    const res = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
 
-  const removeExpense = useCallback((id: string) => {
-    setState((prev) => ({
-      ...prev,
-      expenses: prev.expenses.filter((e) => e.id !== id),
-    }))
-  }, [])
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al guardar los datos esenciales')
+    }
+
+    await loadUserData(String(id_usuario))
+    setState((prev) => ({ ...prev, onboardingComplete: true }))
+  }, [state.user, loadUserData])
+
+  const updateEssentials = useCallback(async (essentials: EssentialData) => {
+    if (!state.user) return
+    const id_usuario = state.user.id_usuario
+
+    const body = {
+      ingreso_mensual: essentials.monthlyIncome,
+      total_gastos_indispensables: essentials.essentialExpenses,
+      ahorro_base: essentials.baseSavings,
+      periodo_presupuesto: essentials.budgetPeriod,
+      gastos_indispensables: essentials.essentialItems.map((item) => ({
+        etiqueta: item.label,
+        monto: item.amount,
+      })),
+    }
+
+    const res = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al actualizar los datos esenciales')
+    }
+
+    await loadUserData(String(id_usuario))
+  }, [state.user, loadUserData])
+
+  const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
+    if (!state.user) return
+    const id_usuario = state.user.id_usuario
+
+    const body = {
+      etiqueta: expense.title,
+      monto: expense.amount,
+      categoria: expense.category,
+      metodo: expense.method,
+    }
+
+    const res = await fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al guardar el gasto')
+    }
+
+    await loadUserData(String(id_usuario))
+  }, [state.user, loadUserData])
+
+  const removeExpense = useCallback(async (id: string) => {
+    if (!state.user) return
+    const id_usuario = state.user.id_usuario
+
+    const res = await fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}&id=${id}`, {
+      method: 'DELETE',
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al eliminar el gasto')
+    }
+
+    await loadUserData(String(id_usuario))
+  }, [state.user, loadUserData])
 
   const reset = useCallback(() => {
     setState(INITIAL_STATE)
@@ -122,6 +308,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       // no-op
     }
   }, [])
+
 
   const value = useMemo<LukasContextValue>(
     () => ({

@@ -6,8 +6,6 @@ header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=utf-8');
 
 $resultado = verificarConexionSupabase();
-debug($resultado);
-//die();
 
 if ($resultado['exito']) {
     enviarRespuestaJson([

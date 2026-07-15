@@ -15,69 +15,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Obtener ID de usuario (por ahora, usamos un parámetro, en producción usarías autenticación real)
-$idUsuario = $_GET['id_usuario'] ?? null;
+$id_usuario = $_GET['id_usuario'] ?? null;
 
-if (!$idUsuario) {
+if (!$id_usuario) {
     enviarRespuestaJson(['error' => 'Falta el ID de usuario'], 400);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Obtener datos esenciales
-    $perfil = PerfilFinanciero::buscarPorIdUsuario($idUsuario);
-    $gastosIndispensables = GastoIndispensable::obtenerPorIdUsuario($idUsuario);
+    $perfil = PerfilFinanciero::buscarPorIdUsuario($id_usuario);
+    $gastos_indispensables = GastoIndispensable::obtenerPorIdUsuario($id_usuario);
     
-    $gastosArray = [];
-    foreach ($gastosIndispensables as $gasto) {
-        $gastosArray[] = $gasto->toArray();
+    $gastos_array = [];
+    foreach ($gastos_indispensables as $gasto) {
+        $gastos_array[] = $gasto->toArray();
     }
     
     enviarRespuestaJson([
         'perfil' => $perfil ? $perfil->toArray() : null,
-        'gastos_indispensables' => $gastosArray
+        'gastos_indispensables' => $gastos_array
     ]);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
     // Guardar/actualizar datos esenciales
     $datos = json_decode(file_get_contents('php://input'), true);
     
     // Validar datos
-    if (!isset($datos['monthlyIncome']) || !isset($datos['essentialExpenses']) || 
-        !isset($datos['baseSavings']) || !isset($datos['budgetPeriod']) ||
-        !isset($datos['essentialItems'])) {
+    if (!isset($datos['ingreso_mensual']) || !isset($datos['total_gastos_indispensables']) || 
+        !isset($datos['ahorro_base']) || !isset($datos['periodo_presupuesto']) ||
+        !isset($datos['gastos_indispensables'])) {
         enviarRespuestaJson(['error' => 'Faltan datos obligatorios'], 400);
     }
     
     // Eliminar gastos indispensables anteriores
-    $gastosAnteriores = GastoIndispensable::obtenerPorIdUsuario($idUsuario);
-    foreach ($gastosAnteriores as $gasto) {
-        GastoIndispensable::eliminar($gasto->getId());
-    }
+    GastoIndispensable::eliminarPorIdUsuario($id_usuario);
     
     // Guardar nuevos gastos indispensables
-    foreach ($datos['essentialItems'] as $item) {
+    foreach ($datos['gastos_indispensables'] as $item) {
         $gasto = new GastoIndispensable();
-        $gasto->setIdUsuario($idUsuario);
-        $gasto->setEtiqueta($item['label']);
-        $gasto->setMonto($item['amount']);
+        $gasto->setIdUsuario($id_usuario);
+        $gasto->setEtiqueta($item['etiqueta']);
+        $gasto->setMonto($item['monto']);
         $gasto->guardar();
     }
     
     // Guardar/actualizar perfil financiero
-    $perfil = PerfilFinanciero::buscarPorIdUsuario($idUsuario);
+    $perfil = PerfilFinanciero::buscarPorIdUsuario($id_usuario);
     if (!$perfil) {
         $perfil = new PerfilFinanciero();
-        $perfil->setIdUsuario($idUsuario);
+        $perfil->setIdUsuario($id_usuario);
     }
-    $perfil->setIngresoMensual($datos['monthlyIncome']);
-    $perfil->setGastosIndispensablesTotal($datos['essentialExpenses']);
-    $perfil->setAhorroBase($datos['baseSavings']);
-    $perfil->setPeriodoPresupuesto($datos['budgetPeriod']);
+    $perfil->setIngresoMensual($datos['ingreso_mensual']);
+    $perfil->setTotalGastosIndispensables($datos['total_gastos_indispensables']);
+    $perfil->setAhorroBase($datos['ahorro_base']);
+    $perfil->setPeriodoPresupuesto($datos['periodo_presupuesto']);
     $resultado = $perfil->guardar();
     
     if (!$resultado['exito']) {
         enviarRespuestaJson(['error' => 'Error al guardar los datos esenciales'], 500);
     }
     
-    enviarRespuestaJson(['exito' => true]);
+    enviarRespuestaJson(['exito' => true, 'perfil' => $perfil->toArray()]);
 } else {
     enviarRespuestaJson(['error' => 'Método no permitido'], 405);
 }

@@ -13,34 +13,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Obtener ID de usuario
-$idUsuario = $_GET['id_usuario'] ?? null;
+$id_usuario = $_GET['id_usuario'] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (!$idUsuario) {
+    if (!$id_usuario) {
         enviarRespuestaJson(['error' => 'Falta el ID de usuario'], 400);
     }
     
-    $gastos = GastoVariable::obtenerPorIdUsuario($idUsuario);
-    $gastosArray = [];
+    $gastos = GastoVariable::obtenerPorIdUsuario($id_usuario);
+    $gastos_array = [];
     foreach ($gastos as $gasto) {
-        $gastosArray[] = $gasto->toArray();
+        $gastos_array[] = $gasto->toArray();
     }
     
-    enviarRespuestaJson(['gastos' => $gastosArray]);
+    enviarRespuestaJson(['gastos' => $gastos_array]);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $datos = json_decode(file_get_contents('php://input'), true);
     
-    if (!$idUsuario || !isset($datos['title']) || !isset($datos['amount']) || 
-        !isset($datos['category']) || !isset($datos['method'])) {
+    if (!$id_usuario || !isset($datos['etiqueta']) || !isset($datos['monto']) || 
+        !isset($datos['categoria']) || !isset($datos['metodo'])) {
         enviarRespuestaJson(['error' => 'Faltan datos obligatorios'], 400);
     }
     
     $gasto = new GastoVariable();
-    $gasto->setIdUsuario($idUsuario);
-    $gasto->setTitulo($datos['title']);
-    $gasto->setMonto($datos['amount']);
-    $gasto->setCategoria($datos['category']);
-    $gasto->setMetodo($datos['method']);
+    $gasto->setIdUsuario($id_usuario);
+    $gasto->setEtiqueta($datos['etiqueta']);
+    $gasto->setMonto($datos['monto']);
+    $gasto->setCategoria($datos['categoria']);
+    $gasto->setMetodo($datos['metodo']);
     $resultado = $gasto->guardar();
     
     if (!$resultado['exito']) {
@@ -49,12 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     
     enviarRespuestaJson(['gasto' => $resultado['datos'][0]]);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    $idGasto = $_GET['id'] ?? null;
-    if (!$idGasto) {
+    $id_gasto = $_GET['id'] ?? null;
+    if (!$id_gasto) {
         enviarRespuestaJson(['error' => 'Falta el ID del gasto'], 400);
     }
     
-    $resultado = GastoVariable::eliminar($idGasto);
+    $resultado = GastoVariable::eliminar($id_gasto);
     if (!$resultado['exito']) {
         enviarRespuestaJson(['error' => 'Error al eliminar el gasto'], 500);
     }

@@ -53,33 +53,68 @@ export function LoginScreen() {
   const { login } = useLukas()
   const [mode, setMode] = useState<'login' | 'register'>('register')
   const [name, setName] = useState('')
+  const [apellidos, setApellidos] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const isRegister = mode === 'register'
 
-  function handleSocial(provider: UserProfile['provider']) {
-    const labels: Record<string, string> = {
-      google: 'Usuario Google',
-      apple: 'Usuario Apple',
-      facebook: 'Usuario Facebook',
+  async function handleSocial(provider: 'google' | 'apple' | 'facebook') {
+    if (loading) return
+    setError(null)
+    setLoading(true)
+    try {
+      const labels: Record<string, string> = {
+        google: 'Usuario Google',
+        apple: 'Usuario Apple',
+        facebook: 'Usuario Facebook',
+      }
+      const label = labels[provider] ?? 'Usuario'
+      const parts = label.trim().split(/\s+/)
+      const nombres = parts[0] || ''
+      const apellidos = parts[0] || ''
+
+      await login({
+        id_usuario: Number(0),
+        nombres,
+        email: `${provider}@lukas.cl`,
+        password: 'social_login_dummy_123456',
+        apellidos,
+        provider,
+      })
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión con redes sociales')
+    } finally {
+      setLoading(false)
     }
-    login({
-      name: labels[provider] ?? 'Usuario',
-      email: `${provider}@lukas.cl`,
-      provider,
-    })
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email || !password) return
-    login({
-      name: isRegister ? name || 'Usuario' : email.split('@')[0],
+  async function registroUsuario(e: React.FormEvent) {
+  e.preventDefault()
+
+  if (!email || !password || loading) return
+
+  setError(null)
+  setLoading(true)
+
+  try {
+    await login({
       email,
+      password,
+      nombres: name.trim(),
+      apellidos: apellidos.trim(),
+      id_usuario: 0,
       provider: 'email',
     })
+  } catch (err: any) {
+    console.error(err)
+    setError(err.message || 'Error en el registro')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-background px-5 py-10">
@@ -96,14 +131,23 @@ export function LoginScreen() {
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <SocialButton onClick={() => handleSocial('google')} icon={<GoogleIcon />}>
+          <SocialButton
+            onClick={() => handleSocial('google')}
+            disabled={loading}
+            icon={<GoogleIcon />}
+          >
             Continuar con Google
           </SocialButton>
-          <SocialButton onClick={() => handleSocial('apple')} icon={<AppleIcon />}>
+          <SocialButton
+            onClick={() => handleSocial('apple')}
+            disabled={loading}
+            icon={<AppleIcon />}
+          >
             Continuar con Apple
           </SocialButton>
           <SocialButton
             onClick={() => handleSocial('facebook')}
+            disabled={loading}
             icon={<FacebookIcon />}
           >
             Continuar con Facebook
@@ -118,7 +162,12 @@ export function LoginScreen() {
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form onSubmit={registroUsuario} className="flex flex-col gap-4">
+          {error && (
+            <div className="rounded-xl bg-destructive/10 p-3.5 text-xs font-medium text-destructive">
+              {error}
+            </div>
+          )}
           {isRegister && (
             <Field
               icon={<User className="size-4" />}
@@ -127,8 +176,19 @@ export function LoginScreen() {
               placeholder="Tu nombre"
               value={name}
               onChange={setName}
+              disabled={loading}
             />
           )}
+          <Field
+            icon={<User className="size-4" />}
+            label="Apellidos"
+            type="text"
+            placeholder="Tu apellido"
+            value={apellidos}
+            onChange={setApellidos}
+            required
+            disabled={loading}
+          />
           <Field
             icon={<Mail className="size-4" />}
             label="Correo"
@@ -137,6 +197,7 @@ export function LoginScreen() {
             value={email}
             onChange={setEmail}
             required
+            disabled={loading}
           />
           <Field
             icon={<Lock className="size-4" />}
@@ -146,11 +207,23 @@ export function LoginScreen() {
             value={password}
             onChange={setPassword}
             required
+            disabled={loading}
           />
 
-          <Button type="submit" size="lg" className="mt-2 h-11 w-full text-sm">
-            {isRegister ? 'Registrarme' : 'Iniciar sesión'}
-            <ArrowRight className="size-4" />
+          <Button
+            type="submit"
+            size="lg"
+            disabled={loading}
+            className="mt-2 h-11 w-full text-sm"
+          >
+            {loading ? (
+              <span className="animate-pulse">Procesando...</span>
+            ) : (
+              <>
+                {isRegister ? 'Registrarme' : 'Iniciar sesión'}
+                <ArrowRight className="size-4" />
+              </>
+            )}
           </Button>
         </form>
 
@@ -158,8 +231,12 @@ export function LoginScreen() {
           {isRegister ? '¿Ya tienes cuenta?' : '¿Aún no tienes cuenta?'}{' '}
           <button
             type="button"
-            onClick={() => setMode(isRegister ? 'login' : 'register')}
-            className="font-medium text-primary underline-offset-4 hover:underline"
+            disabled={loading}
+            onClick={() => {
+              setMode(isRegister ? 'login' : 'register')
+              setError(null)
+            }}
+            className="font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
           >
             {isRegister ? 'Inicia sesión' : 'Regístrate'}
           </button>
@@ -173,16 +250,19 @@ function SocialButton({
   icon,
   children,
   onClick,
+  disabled,
 }: {
   icon: React.ReactNode
   children: React.ReactNode
   onClick: () => void
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-border bg-card text-sm font-medium text-card-foreground transition-colors hover:bg-muted"
+      disabled={disabled}
+      className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-border bg-card text-sm font-medium text-card-foreground transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
     >
       {icon}
       {children}
@@ -198,6 +278,7 @@ function Field({
   value,
   onChange,
   required,
+  disabled,
 }: {
   icon: React.ReactNode
   label: string
@@ -206,6 +287,7 @@ function Field({
   value: string
   onChange: (v: string) => void
   required?: boolean
+  disabled?: boolean
 }) {
   return (
     <label className="block">
@@ -219,8 +301,9 @@ function Field({
           required={required}
           placeholder={placeholder}
           value={value}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="h-11 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
         />
       </span>
     </label>

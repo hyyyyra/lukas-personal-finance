@@ -22,7 +22,9 @@ export interface Expense {
 }
 
 export interface UserProfile {
-  name: string
+  id_usuario: number
+  nombre: string
+  apellido: string
   email: string
   provider: 'google' | 'apple' | 'facebook' | 'email'
 }

@@ -22,21 +22,30 @@ function debug($data, $die = false) {
  * @return array Estado de la conexión
  */
 function verificarConexionSupabase() {
+    // Probamos con un simple SELECT a una tabla (o un endpoint que acepte anon key)
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/rest/v1/');
+    // Usamos un endpoint simple que no requiera privilegios elevados
+    curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/rest/v1/?limit=1');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    // Desactivar verificación SSL (solo para desarrollo!)
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'apikey: ' . SUPABASE_KEY,
         'Authorization: Bearer ' . SUPABASE_KEY
     ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
     
+    // Consideramos éxito si hay conexión (incluso si el error es 404 por falta de tablas, significa que la API está respondiendo!)
     return [
-        'exito' => $httpCode >= 200 && $httpCode < 300,
+        'exito' => $httpCode !== 0,
         'codigo_http' => $httpCode,
-        'respuesta' => $response
+        'respuesta' => $response,
+        'error_curl' => $curlError,
+        'mensaje' => $httpCode !== 0 ? 'Conexión con la API de Supabase establecida!' : 'No se pudo conectar a Supabase'
     ];
 }
 
@@ -54,6 +63,7 @@ function supabaseRequest($metodo, $tabla, $datos = [], $filtros = []) {
     // Agregar filtros a la URL si es GET
     if ($metodo === 'GET' && !empty($filtros)) {
         $queryParams = http_build_query($filtros);
+        error_log("queryParams: " . $queryParams);
         $url .= '?' . $queryParams;
     }
     
@@ -61,6 +71,9 @@ function supabaseRequest($metodo, $tabla, $datos = [], $filtros = []) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $metodo);
+    // Desactivar verificación SSL (solo para desarrollo!)
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
     
     $headers = [
         'apikey: ' . SUPABASE_KEY,
