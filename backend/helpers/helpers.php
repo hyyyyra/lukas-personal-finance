@@ -63,7 +63,6 @@ function supabaseRequest($metodo, $tabla, $datos = [], $filtros = []) {
     // Agregar filtros a la URL si es GET
     if ($metodo === 'GET' && !empty($filtros)) {
         $queryParams = http_build_query($filtros);
-        error_log("queryParams: " . $queryParams);
         $url .= '?' . $queryParams;
     }
     

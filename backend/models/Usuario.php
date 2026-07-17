@@ -77,7 +77,7 @@ class Usuario {
      */
     public static function buscarPorEmail($email_usuario) {
         $respuesta = supabaseRequest('GET', 'usuarios', [], ['email_usuario' => "eq.$email_usuario"]);
-        error_log("respuesta: " . var_export($respuesta));
+        error_log("respuesta: " . var_export($respuesta, true));
         if ($respuesta['exito'] && !empty($respuesta['datos'])) {
             return new Usuario($respuesta['datos'][0]);
         }
@@ -104,8 +104,8 @@ class Usuario {
     public function toArray() {
         return [
             'id_usuario' => $this->id_usuario,
-            'nombres' => $this->nombres,
-            'apellidos' => $this->apellidos,
+            'nombre' => $this->nombres,
+            'apellido' => $this->apellidos,
             'email' => $this->email_usuario,
             'created_at' => $this->created_at,
             'logged_at' => $this->logged_at

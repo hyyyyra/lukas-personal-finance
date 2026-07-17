@@ -19,36 +19,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validar datos
     if (!isset($datos['email']) || !isset($datos['password'])) {
         enviarRespuestaJson(['error' => 'Faltan datos obligatorios (email y contraseña)'], 400);
+        exit;
     }
     
     // Buscar usuario por email
     $usuario = Usuario::buscarPorEmail($datos['email']);
     
     if (!$usuario) {
-        // Si no existe y vienen nombres y apellidos, crear nuevo usuario (registro)
-        error_log("datos: " . json_encode($datos));
-        if (isset($datos['email']) && isset($datos['password'])) {
-            error_log("ENTRO A REGISTRAR USUARIO");
+        // Si no existe y vienen nombres, crear nuevo usuario (registro)
+        $nombres = $datos['nombres'] ?? '';
+        $apellidos = $datos['apellidos'] ?? '';
+
+        if (!empty($nombres) && !empty($apellidos)) {
             $nuevoUsuario = new Usuario();
-            $nuevoUsuario->setNombres($datos['nombres']);
-            $nuevoUsuario->setApellidos($datos['apellidos']);
-            $nuevoUsuario->setEmailUsuario($datos['email']);
+            $nuevoUsuario->setNombres($nombres);
+            $nuevoUsuario->setApellidos($apellidos);
             $nuevoUsuario->setEmailUsuario($datos['email']);
             $nuevoUsuario->setContraseñaUsuario($datos['password']);
             $resultado = $nuevoUsuario->guardar();
             
             if (!$resultado['exito']) {
-                enviarRespuestaJson(['error' => 'Error al crear el usuario'], 500);
+                enviarRespuestaJson(['error' => 'Error al crear el usuario: ' . ($resultado['mensaje'] ?? '')], 500);
+                exit;
             }
             
             $usuario = new Usuario($resultado['datos'][0]);
         } else {
             enviarRespuestaJson(['error' => 'Usuario no encontrado'], 404);
+            exit;
         }
     } else {
         // Verificar contraseña
         if (!$usuario->verificarContraseña($datos['password'])) {
             enviarRespuestaJson(['error' => 'Contraseña incorrecta'], 401);
+            exit;
         }
     }
     

@@ -33,9 +33,13 @@ interface LukasContextValue extends LukasState {
     id_usuario: number  
     email: string
     password?: string
+    nombre?: string
+    apellido?: string
     nombres?: string
     apellidos?: string
     provider?: string
+    created_at?: string
+    logged_at?: string | null
   }) => Promise<void>
   logout: () => void
   completeOnboarding: (essentials: EssentialData) => Promise<void>
@@ -144,21 +148,23 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (credentials: {
     id_usuario: number
     email: string
-    password?: string
+    password?: string 
+    nombre?: string
+    apellido?: string
     nombres?: string
     apellidos?: string
-    provider?: string
+    created_at?: string
+    logged_at?: string | null
   }) => {
-    const { email, password = 'social_login_dummy_123456', nombres, apellidos } = credentials
+    const { email, password = 'social_login_dummy_123456', nombres, apellidos, nombre, apellido, created_at, logged_at } = credentials
 
     const body: Record<string, string> = {
       email,
       password,
-      nombres: nombres ?? "",
-      apellidos: apellidos ?? "",
+      nombres: nombres ?? nombre ?? "",
+      apellidos: apellidos ?? apellido ?? "",
     }
 
-    console.log(`${API_BASE_URL}/auth/login.php`);
     const res = await fetch(`${API_BASE_URL}/auth/login.php`, {
       method: 'POST',
       headers: {
@@ -180,14 +186,16 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
 
     const userProfile: UserProfile = {
       id_usuario: data.usuario.id_usuario,
-      nombre: data.usuario.nombres,
-      apellido: data.usuario.apellidos,
+      nombre: data.usuario.nombre,
+      apellido: data.usuario.apellido,
       email: data.usuario.email,
-      provider: data.usuario.provider
+      password: password,
+      created_at: data.usuario.created_at ?? created_at ?? new Date().toISOString(),
+      logged_at: data.usuario.logged_at ?? logged_at ?? null,
     }
 
     setState((prev) => ({ ...prev, user: userProfile }))
-    await loadUserData(String(userProfile.id_usuario))
+    await loadUserData(userProfile.email)
   }, [loadUserData])
 
   const logout = useCallback(() => {

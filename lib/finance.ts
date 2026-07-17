@@ -26,7 +26,9 @@ export interface UserProfile {
   nombre: string
   apellido: string
   email: string
-  provider: 'google' | 'apple' | 'facebook' | 'email'
+  password: string
+  created_at: string // ISO date
+  logged_at: string | null
 }
 
 export interface EssentialItem {

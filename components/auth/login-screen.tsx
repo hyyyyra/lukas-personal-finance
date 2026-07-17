@@ -78,11 +78,10 @@ export function LoginScreen() {
 
       await login({
         id_usuario: Number(0),
-        nombres,
+        nombre,
         email: `${provider}@lukas.cl`,
         password: 'social_login_dummy_123456',
-        apellidos,
-        provider,
+        apellido,
       })
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión con redes sociales')
@@ -92,29 +91,27 @@ export function LoginScreen() {
   }
 
   async function registroUsuario(e: React.FormEvent) {
-  e.preventDefault()
+    e.preventDefault()
 
-  if (!email || !password || loading) return
+    if (!email || !password || loading) return
 
-  setError(null)
-  setLoading(true)
+    setError(null)
+    setLoading(true)
 
-  try {
-    await login({
-      email,
-      password,
-      nombres: name.trim(),
-      apellidos: apellidos.trim(),
-      id_usuario: 0,
-      provider: 'email',
-    })
-  } catch (err: any) {
-    console.error(err)
-    setError(err.message || 'Error en el registro')
-  } finally {
-    setLoading(false)
+    try {
+      await login({
+        id_usuario: Number(0),
+        nombre: name,
+        apellido: apellidos,
+        email,
+        password,
+      })
+    } catch (err: any) {
+      setError(err.message || 'Error en el registro')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-background px-5 py-10">
