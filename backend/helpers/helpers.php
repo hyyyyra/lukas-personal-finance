@@ -57,42 +57,52 @@ function verificarConexionSupabase() {
  * @param array $filtros Filtros para la consulta (para GET)
  * @return array Respuesta de Supabase
  */
-function supabaseRequest($metodo, $tabla, $datos = [], $filtros = []) {
+function supabaseRequest($metodo, $tabla, $datos = [], $filtros = [])
+{
     $url = SUPABASE_URL . '/rest/v1/' . $tabla;
-    
-    // Agregar filtros a la URL si es GET
-    if ($metodo === 'GET' && !empty($filtros)) {
-        $queryParams = http_build_query($filtros);
-        $url .= '?' . $queryParams;
+
+    // Agregar filtros a la URL
+    if (!empty($filtros)) {
+        $url .= '?' . http_build_query($filtros);
     }
-    
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
+
+    $ch = curl_init($url);
+
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $metodo);
-    // Desactivar verificación SSL (solo para desarrollo!)
+
+    // Solo para desarrollo
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    
-    $headers = [
+
+    // Enviar cuerpo para cualquier método distinto de GET
+    if ($metodo !== 'GET' && !empty($datos)) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($datos));
+    }
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'apikey: ' . SUPABASE_KEY,
         'Authorization: Bearer ' . SUPABASE_KEY,
         'Content-Type: application/json',
         'Prefer: return=representation'
-    ];
-    
-    // Agregar datos si es POST o PUT
-    if (in_array($metodo, ['POST', 'PUT']) && !empty($datos)) {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($datos));
+    ]);
+
+    // Logs útiles para depuración
+    error_log("URL: " . $url);
+
+    if ($metodo !== 'GET' && !empty($datos)) {
+        error_log("BODY: " . json_encode($datos));
     }
-    
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
+
     $response = curl_exec($ch);
+
+    error_log("RESPUESTA: " . $response);
+
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
+
     curl_close($ch);
-    
+
     return [
         'exito' => $httpCode >= 200 && $httpCode < 300,
         'codigo_http' => $httpCode,

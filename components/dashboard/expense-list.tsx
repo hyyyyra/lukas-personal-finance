@@ -99,11 +99,6 @@ export function ExpenseList({
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span>{CATEGORY_LABEL[expense.category]}</span>
                 <span aria-hidden>·</span>
-                <span className="inline-flex items-center gap-1">
-                  <MethodIcon className="size-3" />
-                  {METHOD_LABEL[expense.method]}
-                </span>
-                <span aria-hidden>·</span>
                 <span>{formatDate(expense.createdAt)}</span>
               </p>
             </div>

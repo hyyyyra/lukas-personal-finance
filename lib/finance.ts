@@ -52,12 +52,14 @@ export interface LukasState {
   expenses: Expense[]
 }
 
+export const FIXED_BUDGET_PERIOD: BudgetPeriod = 'mensual'
+
 export const DEFAULT_ESSENTIALS: EssentialData = {
   monthlyIncome: 0,
   essentialExpenses: 0,
   essentialItems: [],
   baseSavings: 0,
-  budgetPeriod: 'mensual',
+  budgetPeriod: FIXED_BUDGET_PERIOD,
 }
 
 /** Categorías sugeridas para gastos indispensables */
@@ -127,9 +129,14 @@ export function monthlyDisposable(e: EssentialData): number {
   return Math.max(0, e.monthlyIncome - e.essentialExpenses - e.baseSavings)
 }
 
+/** Presupuesto mensual antes de los gastos variables */
+export function monthlyBudgetCap(e: EssentialData): number {
+  return Math.max(0, e.monthlyIncome - e.essentialExpenses)
+}
+
 /** Presupuesto asignado para el periodo seleccionado */
 export function periodBudget(e: EssentialData): number {
-  const monthly = monthlyDisposable(e)
+  const monthly = monthlyBudgetCap(e)
   const perDay = monthly / 30
   return perDay * PERIOD_DAYS[e.budgetPeriod]
 }

@@ -7,17 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { MoneyInput } from '@/components/ui/money-input'
 import {
-  type BudgetPeriod,
   type EssentialData,
   type EssentialItem,
+  FIXED_BUDGET_PERIOD,
   formatCLP,
   monthlyDisposable,
-  PERIOD_LABEL,
   sumEssentialItems,
 } from '@/lib/finance'
-import { cn } from '@/lib/utils'
-
-const PERIODS: BudgetPeriod[] = ['semanal', 'quincenal', 'mensual']
 
 export function EditEssentialsDialog({
   open,
@@ -34,7 +30,7 @@ export function EditEssentialsDialog({
 
   // Sincroniza el formulario cada vez que se abre el modal
   useEffect(() => {
-    if (open) setData(essentials)
+    if (open) setData({ ...essentials, budgetPeriod: FIXED_BUDGET_PERIOD })
   }, [open, essentials])
 
   const set = (patch: Partial<EssentialData>) =>
@@ -49,7 +45,7 @@ export function EditEssentialsDialog({
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    onSave(data)
+    onSave({ ...data, budgetPeriod: FIXED_BUDGET_PERIOD })
     onClose()
   }
 
@@ -96,30 +92,16 @@ export function EditEssentialsDialog({
           />
         </div>
 
-        <div>
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+        <div className="rounded-2xl border border-border bg-secondary/60 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Periodo del presupuesto
-          </span>
-          <div className="flex gap-2">
-            {PERIODS.map((p) => {
-              const active = data.budgetPeriod === p
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => set({ budgetPeriod: p })}
-                  className={cn(
-                    'flex-1 rounded-xl border py-2.5 text-xs font-medium transition-colors',
-                    active
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-muted-foreground hover:bg-muted',
-                  )}
-                >
-                  {PERIOD_LABEL[p]}
-                </button>
-              )
-            })}
-          </div>
+          </p>
+          <p className="mt-1 font-medium text-foreground">
+            Vista mensual fija
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Este valor ya no se puede cambiar desde la app.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-border bg-secondary/60 p-4">

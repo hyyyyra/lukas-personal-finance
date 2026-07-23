@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CalendarClock,
   Check,
+  LogOut,
   PiggyBank,
   Receipt,
   Wallet,
@@ -15,26 +16,18 @@ import { LukasLogo } from '@/components/lukas-logo'
 import { Button } from '@/components/ui/button'
 import { MoneyInput } from '@/components/ui/money-input'
 import {
-  type BudgetPeriod,
   DEFAULT_ESSENTIALS,
   type EssentialData,
   type EssentialItem,
+  FIXED_BUDGET_PERIOD,
   formatCLP,
   monthlyDisposable,
-  PERIOD_LABEL,
   sumEssentialItems,
 } from '@/lib/finance'
 import { useLukas } from '@/lib/use-lukas-store'
-import { cn } from '@/lib/utils'
-
-const PERIODS: { value: BudgetPeriod; hint: string }[] = [
-  { value: 'semanal', hint: 'Ideal para un control diario y ajustado' },
-  { value: 'quincenal', hint: 'Se acomoda a pagos cada dos semanas' },
-  { value: 'mensual', hint: 'Visión completa de todo el mes' },
-]
 
 export function OnboardingCarousel() {
-  const { user, completeOnboarding } = useLukas()
+  const { user, completeOnboarding, logout } = useLukas()
   const [step, setStep] = useState(0)
   const [data, setData] = useState<EssentialData>(DEFAULT_ESSENTIALS)
 
@@ -51,7 +44,7 @@ export function OnboardingCarousel() {
   const steps = [
     {
       icon: <Wallet className="size-5" />,
-      title: '¿Cuánto ingresas al mes?',
+      title: 'Cuanto ingresas al mes?',
       subtitle:
         'Suma tu sueldo y cualquier ingreso fijo que recibas mensualmente.',
       field: (
@@ -67,7 +60,7 @@ export function OnboardingCarousel() {
       icon: <Receipt className="size-5" />,
       title: 'Gastos indispensables',
       subtitle:
-        'Detalla cada gasto que pagas sí o sí (arriendo, cuentas, transporte). Se sumarán en tu total.',
+        'Detalla cada gasto que pagas si o si (arriendo, cuentas, transporte). Se sumaran en tu total.',
       field: (
         <EssentialsItemsEditor
           items={data.essentialItems}
@@ -91,46 +84,18 @@ export function OnboardingCarousel() {
     },
     {
       icon: <CalendarClock className="size-5" />,
-      title: '¿Cómo prefieres verlo?',
+      title: 'Vista mensual fija',
       subtitle:
-        'Elige el periodo con el que quieres controlar tu presupuesto disponible.',
+        'Tu presupuesto se mostrara solo en formato mensual para mantenerlo simple.',
       field: (
-        <div className="flex flex-col gap-2.5">
-          {PERIODS.map((p) => {
-            const active = data.budgetPeriod === p.value
-            return (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => set({ budgetPeriod: p.value })}
-                className={cn(
-                  'flex items-center justify-between rounded-xl border px-4 py-3.5 text-left transition-colors',
-                  active
-                    ? 'border-primary bg-primary/8'
-                    : 'border-border bg-card hover:bg-muted',
-                )}
-              >
-                <span>
-                  <span className="block text-sm font-medium text-foreground">
-                    {PERIOD_LABEL[p.value]}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {p.hint}
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    'flex size-5 items-center justify-center rounded-full border',
-                    active
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border',
-                  )}
-                >
-                  {active && <Check className="size-3" />}
-                </span>
-              </button>
-            )
-          })}
+        <div className="rounded-2xl border border-border bg-secondary/60 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Periodo del presupuesto
+          </p>
+          <p className="mt-1 text-sm font-medium text-foreground">Mensual</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Esta vista es fija y no se puede cambiar.
+          </p>
         </div>
       ),
     },
@@ -140,9 +105,16 @@ export function OnboardingCarousel() {
   const current = steps[step]
   const disposable = monthlyDisposable(data)
 
+  const userFirstName =
+    user &&
+    'name' in user &&
+    typeof (user as Record<string, unknown>).name === 'string'
+      ? (user as { name: string }).name.split(' ')[0]
+      : undefined
+
   function next() {
     if (isLast) {
-      completeOnboarding(data)
+      completeOnboarding({ ...data, budgetPeriod: FIXED_BUDGET_PERIOD })
       return
     }
     setStep((s) => Math.min(s + 1, steps.length - 1))
@@ -162,15 +134,13 @@ export function OnboardingCarousel() {
           </span>
         </header>
 
-        {/* Barra de progreso */}
         <div className="mt-5 flex gap-1.5">
           {steps.map((_, i) => (
             <span
               key={i}
-              className={cn(
-                'h-1.5 flex-1 rounded-full transition-colors',
-                i <= step ? 'bg-primary' : 'bg-border',
-              )}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                i <= step ? 'bg-primary' : 'bg-border'
+              }`}
             />
           ))}
         </div>
@@ -180,11 +150,11 @@ export function OnboardingCarousel() {
             {current.icon}
           </span>
           <h1 className="mt-5 text-balance font-serif text-3xl leading-tight text-foreground">
-            {step === 0 && user?.name
-              ? `Hola, ${user.name.split(' ')[0]}`
+            {step === 0 && userFirstName
+              ? `Hola, ${userFirstName}`
               : current.title}
           </h1>
-          {step === 0 && user?.name && (
+          {step === 0 && userFirstName && (
             <p className="mt-1 font-serif text-xl text-muted-foreground">
               {current.title}
             </p>
@@ -214,7 +184,18 @@ export function OnboardingCarousel() {
         </div>
 
         <div className="mt-8 flex items-center gap-3">
-          {step > 0 && (
+          {step === 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-11"
+              onClick={logout}
+            >
+              <LogOut className="size-4" />
+              Salir
+            </Button>
+          ) : (
             <Button
               type="button"
               variant="outline"
@@ -223,7 +204,7 @@ export function OnboardingCarousel() {
               onClick={back}
             >
               <ArrowLeft className="size-4" />
-              Atrás
+              Atras
             </Button>
           )}
           <Button

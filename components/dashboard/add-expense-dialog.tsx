@@ -44,12 +44,12 @@ export function AddExpenseDialog({
   onClose: () => void
   onAdd: (expense: Omit<Expense, 'id' | 'createdAt'>) => void
 }) {
-  const [view, setView] = useState<View>('select')
+  const [view, setView] = useState<View>('manual')
 
   // Reset al cerrar
   useEffect(() => {
     if (!open) {
-      const t = setTimeout(() => setView('select'), 200)
+      const t = setTimeout(() => setView('manual'), 200)
       return () => clearTimeout(t)
     }
   }, [open])
@@ -60,17 +60,17 @@ export function AddExpenseDialog({
   }
 
   const titles: Record<View, string> = {
-    select: 'Ingresar gasto',
+    select: 'Registrar gasto',
     ocr: 'Escanear con cámara',
     archivo: 'Subir archivo',
-    manual: 'Ingreso manual',
+    manual: 'Registrar nuevo gasto',
   }
 
   const descriptions: Record<View, string> = {
-    select: 'Elige cómo quieres registrar tu gasto variable.',
+    select: 'Ingresa los detalles de tu movimiento.',
     ocr: 'Apunta la cámara a tu boleta o recibo.',
     archivo: 'Sube una imagen o PDF de tu comprobante.',
-    manual: 'Escribe los datos de tu gasto.',
+    manual: 'Detalla la información de tu movimiento para mantener al día tus finanzas.',
   }
 
   return (
@@ -80,17 +80,6 @@ export function AddExpenseDialog({
       title={titles[view]}
       description={descriptions[view]}
     >
-      {view !== 'select' && (
-        <button
-          type="button"
-          onClick={() => setView('select')}
-          className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          Otros métodos
-        </button>
-      )}
-
       {view === 'select' && <MethodSelect onSelect={setView} />}
       {view === 'ocr' && <OcrView onConfirm={handleAdd} />}
       {view === 'archivo' && <FileView onConfirm={handleAdd} />}

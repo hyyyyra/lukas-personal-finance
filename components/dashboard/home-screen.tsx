@@ -15,10 +15,10 @@ import { EditEssentialsDialog } from '@/components/dashboard/edit-essentials-dia
 import { ExpenseList } from '@/components/dashboard/expense-list'
 import { LukasLogo } from '@/components/lukas-logo'
 import {
-  type BudgetPeriod,
+  FIXED_BUDGET_PERIOD,
   expensesInPeriod,
   formatCLP,
-  monthlyDisposable,
+  monthlyBudgetCap,
   totalSpent,
 } from '@/lib/finance'
 import { useLukas } from '@/lib/use-lukas-store'
@@ -38,14 +38,10 @@ export function HomeScreen() {
   const [editOpen, setEditOpen] = useState(false)
 
   const periodExpenses = useMemo(
-    () => expensesInPeriod(expenses, essentials.budgetPeriod),
-    [expenses, essentials.budgetPeriod],
+    () => expensesInPeriod(expenses, FIXED_BUDGET_PERIOD),
+    [expenses],
   )
   const spent = useMemo(() => totalSpent(periodExpenses), [periodExpenses])
-
-  function changePeriod(p: BudgetPeriod) {
-    updateEssentials({ ...essentials, budgetPeriod: p })
-  }
 
   const firstName = user?.name?.split(' ')[0] ?? 'usuario'
 
@@ -85,7 +81,6 @@ export function HomeScreen() {
             <BudgetOverview
               essentials={essentials}
               spent={spent}
-              onChangePeriod={changePeriod}
             />
 
             {/* Tarjetas de datos esenciales */}
@@ -110,7 +105,7 @@ export function HomeScreen() {
             <p className="mt-3 text-center text-xs text-muted-foreground lg:mt-4">
               Disponible mensual:{' '}
               <span className="font-medium text-foreground">
-                {formatCLP(monthlyDisposable(essentials))}
+                {formatCLP(Math.max(0, monthlyBudgetCap(essentials) - spent))}
               </span>
             </p>
 

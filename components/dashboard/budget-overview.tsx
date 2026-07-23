@@ -2,26 +2,21 @@
 
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import {
-  type BudgetPeriod,
   type EssentialData,
+  FIXED_BUDGET_PERIOD,
   formatCLP,
-  PERIOD_LABEL,
-  periodBudget,
+  monthlyBudgetCap,
 } from '@/lib/finance'
 import { cn } from '@/lib/utils'
-
-const PERIODS: BudgetPeriod[] = ['semanal', 'quincenal', 'mensual']
 
 export function BudgetOverview({
   essentials,
   spent,
-  onChangePeriod,
 }: {
   essentials: EssentialData
   spent: number
-  onChangePeriod: (p: BudgetPeriod) => void
 }) {
-  const budget = periodBudget(essentials)
+  const budget = monthlyBudgetCap(essentials)
   const remaining = budget - spent
   const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0
   const overBudget = remaining < 0
@@ -29,31 +24,13 @@ export function BudgetOverview({
 
   return (
     <section className="rounded-3xl bg-primary p-6 text-primary-foreground shadow-sm sm:p-7 lg:p-8">
-      {/* Selector de periodo */}
-      <div className="flex items-center gap-1 rounded-full bg-primary-foreground/15 p-1">
-        {PERIODS.map((p) => {
-          const active = essentials.budgetPeriod === p
-          return (
-            <button
-              key={p}
-              type="button"
-              onClick={() => onChangePeriod(p)}
-              className={cn(
-                'flex-1 rounded-full py-1.5 text-xs font-medium transition-colors',
-                active
-                  ? 'bg-primary-foreground text-primary'
-                  : 'text-primary-foreground/80 hover:text-primary-foreground',
-              )}
-            >
-              {PERIOD_LABEL[p]}
-            </button>
-          )
-        })}
-      </div>
+      {/* <div className="inline-flex rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-medium text-primary-foreground/85">
+        Vista {FIXED_BUDGET_PERIOD}
+      </div> */}
 
-      <div className="mt-6">
+      <div className="mt-1">
         <p className="text-sm text-primary-foreground/80">
-          Presupuesto restante {PERIOD_LABEL[essentials.budgetPeriod].toLowerCase()}
+          Presupuesto restante mensual
         </p>
         <p className="mt-1 font-serif text-[2.75rem] leading-none tabular-nums tracking-tight sm:text-6xl">
           {formatCLP(remaining)}

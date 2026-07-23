@@ -56,8 +56,15 @@ class PerfilFinanciero {
             'update_at' => date('Y-m-d H:i:s')
         ];
 
+        var_dump("=============== IMPRIMO ID_PERFILFINANCIERO =================");
+        var_dump($this->id_perfilfinanciero);
         if ($this->id_perfilfinanciero) {
-            return supabaseRequest('PUT', 'perfil_financiero', $datos, ['id_perfilfinanciero' => "eq." . $this->id_perfilfinanciero]);
+            return supabaseRequest(
+                'PATCH',
+                'perfil_financiero',
+                $datos,
+                ['id_perfilfinanciero' => 'eq.' . $this->id_perfilfinanciero]
+            );
         } else {
             return supabaseRequest('POST', 'perfil_financiero', $datos);
         }

@@ -9,6 +9,8 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
+const PERIODO_PRESUPUESTO_FIJO = 'mensual';
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
@@ -24,16 +26,9 @@ if (!$id_usuario) {
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Obtener datos esenciales
     $perfil = PerfilFinanciero::buscarPorIdUsuario($id_usuario);
-    $gastos_indispensables = GastoIndispensable::obtenerPorIdUsuario($id_usuario);
-    
-    $gastos_array = [];
-    foreach ($gastos_indispensables as $gasto) {
-        $gastos_array[] = $gasto->toArray();
-    }
     
     enviarRespuestaJson([
         'perfil' => $perfil ? $perfil->toArray() : null,
-        'gastos_indispensables' => $gastos_array
     ]);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
     // Guardar/actualizar datos esenciales
@@ -41,25 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     
     // Validar datos
     if (!isset($datos['ingreso_mensual']) || !isset($datos['total_gastos_indispensables']) || 
-        !isset($datos['ahorro_base']) || !isset($datos['periodo_presupuesto']) ||
-        !isset($datos['gastos_indispensables'])) {
+        !isset($datos['ahorro_base'])) {
         enviarRespuestaJson(['error' => 'Faltan datos obligatorios'], 400);
     }
     
     // Eliminar gastos indispensables anteriores
     GastoIndispensable::eliminarPorIdUsuario($id_usuario);
     
-    // Guardar nuevos gastos indispensables
-    foreach ($datos['gastos_indispensables'] as $item) {
-        $gasto = new GastoIndispensable();
-        $gasto->setIdUsuario($id_usuario);
-        $gasto->setEtiqueta($item['etiqueta']);
-        $gasto->setMonto($item['monto']);
-        $gasto->guardar();
-    }
-    
     // Guardar/actualizar perfil financiero
     $perfil = PerfilFinanciero::buscarPorIdUsuario($id_usuario);
+
     if (!$perfil) {
         $perfil = new PerfilFinanciero();
         $perfil->setIdUsuario($id_usuario);
@@ -67,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $perfil->setIngresoMensual($datos['ingreso_mensual']);
     $perfil->setTotalGastosIndispensables($datos['total_gastos_indispensables']);
     $perfil->setAhorroBase($datos['ahorro_base']);
-    $perfil->setPeriodoPresupuesto($datos['periodo_presupuesto']);
+    $perfil->setPeriodoPresupuesto(PERIODO_PRESUPUESTO_FIJO);
     $resultado = $perfil->guardar();
     
     if (!$resultado['exito']) {

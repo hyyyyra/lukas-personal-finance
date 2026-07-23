@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Fraunces, Inter } from 'next/font/google'
 import { LukasProvider } from '@/lib/use-lukas-store'
+import { GoogleAuthProvider } from '@/components/auth/google-auth-provider'
 import './globals.css'
 
 const inter = Inter({
@@ -41,7 +42,9 @@ export default function RootLayout({
       className={`light bg-background ${inter.variable} ${fraunces.variable}`}
     >
       <body className="bg-background font-sans antialiased">
-        <LukasProvider>{children}</LukasProvider>
+        <GoogleAuthProvider>
+          <LukasProvider>{children}</LukasProvider>
+        </GoogleAuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

@@ -1,7 +1,8 @@
 'use client'
 
-import { ArrowRight, Lock, Mail, User } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from 'lucide-react'
 import { useState } from 'react'
+import { useGoogleLogin } from '@react-oauth/google'
 import { LukasLogo } from '@/components/lukas-logo'
 import { Button } from '@/components/ui/button'
 import type { UserProfile } from '@/lib/finance'
@@ -50,7 +51,7 @@ function FacebookIcon() {
 }
 
 export function LoginScreen() {
-  const { login } = useLukas()
+  const { login, loginWithGoogle, signin } = useLukas()
   const [mode, setMode] = useState<'login' | 'register'>('register')
   const [name, setName] = useState('')
   const [apellidos, setApellidos] = useState('')
@@ -60,6 +61,20 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
 
   const isRegister = mode === 'register'
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true)
+      try {
+        await loginWithGoogle(tokenResponse.access_token)
+      } catch (err: any) {
+        setError(err.message || 'Error al iniciar sesión con Google')
+      } finally {
+        setLoading(false)
+      }
+    },
+    onError: () => setError('Error al autenticar con Google'),
+  })
 
   async function handleSocial(provider: 'google' | 'apple' | 'facebook') {
     if (loading) return
@@ -73,8 +88,8 @@ export function LoginScreen() {
       }
       const label = labels[provider] ?? 'Usuario'
       const parts = label.trim().split(/\s+/)
-      const nombres = parts[0] || ''
-      const apellidos = parts[0] || ''
+      const nombre = parts[0] || ''
+      const apellido = parts[1] || ''
 
       await login({
         id_usuario: Number(0),
@@ -92,22 +107,23 @@ export function LoginScreen() {
 
   async function registroUsuario(e: React.FormEvent) {
     e.preventDefault()
-
     if (!email || !password || loading) return
-
     setError(null)
     setLoading(true)
-
     try {
-      await login({
-        id_usuario: Number(0),
-        nombre: name,
-        apellido: apellidos,
-        email,
-        password,
-      })
+      if (isRegister) {
+        await login({
+          id_usuario: 0,
+          nombre: name,
+          apellido: apellidos,
+          email,
+          password,
+        })
+      } else {
+        await signin({ email, password })
+      }
     } catch (err: any) {
-      setError(err.message || 'Error en el registro')
+      setError(err.message || (isRegister ? 'Error en el registro' : 'Error al iniciar sesión'))
     } finally {
       setLoading(false)
     }
@@ -129,25 +145,11 @@ export function LoginScreen() {
 
         <div className="flex flex-col gap-2.5">
           <SocialButton
-            onClick={() => handleSocial('google')}
+            onClick={() => handleGoogleLogin()}
             disabled={loading}
             icon={<GoogleIcon />}
           >
             Continuar con Google
-          </SocialButton>
-          <SocialButton
-            onClick={() => handleSocial('apple')}
-            disabled={loading}
-            icon={<AppleIcon />}
-          >
-            Continuar con Apple
-          </SocialButton>
-          <SocialButton
-            onClick={() => handleSocial('facebook')}
-            disabled={loading}
-            icon={<FacebookIcon />}
-          >
-            Continuar con Facebook
           </SocialButton>
         </div>
 
@@ -166,26 +168,27 @@ export function LoginScreen() {
             </div>
           )}
           {isRegister && (
-            <Field
-              icon={<User className="size-4" />}
-              label="Nombre"
-              type="text"
-              placeholder="Tu nombre"
-              value={name}
-              onChange={setName}
-              disabled={loading}
-            />
+            <>
+              <Field
+                icon={<User className="size-4" />}
+                label="Nombre"
+                type="text"
+                placeholder="Tu nombre"
+                value={name}
+                onChange={setName}
+                disabled={loading}
+              />
+              <Field
+                icon={<User className="size-4" />}
+                label="Apellidos"
+                type="text"
+                placeholder="Tu apellido"
+                value={apellidos}
+                onChange={setApellidos}
+                disabled={loading}
+              />
+            </>
           )}
-          <Field
-            icon={<User className="size-4" />}
-            label="Apellidos"
-            type="text"
-            placeholder="Tu apellido"
-            value={apellidos}
-            onChange={setApellidos}
-            required
-            disabled={loading}
-          />
           <Field
             icon={<Mail className="size-4" />}
             label="Correo"
@@ -205,6 +208,7 @@ export function LoginScreen() {
             onChange={setPassword}
             required
             disabled={loading}
+            showToggle
           />
 
           <Button
@@ -276,6 +280,7 @@ function Field({
   onChange,
   required,
   disabled,
+  showToggle,
 }: {
   icon: React.ReactNode
   label: string
@@ -285,7 +290,14 @@ function Field({
   onChange: (v: string) => void
   required?: boolean
   disabled?: boolean
+  showToggle?: boolean
 }) {
+  const [revealing, setReveal] = useState(false)
+  const inputType = showToggle && revealing ? 'text' : type
+
+  const startReveal = () => setReveal(true)
+  const stopReveal = () => setReveal(false)
+
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -294,7 +306,7 @@ function Field({
       <span className="flex items-center gap-2.5 rounded-xl border border-input bg-card px-3.5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20">
         <span className="text-muted-foreground">{icon}</span>
         <input
-          type={type}
+          type={inputType}
           required={required}
           placeholder={placeholder}
           value={value}
@@ -302,6 +314,24 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           className="h-11 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
         />
+        {showToggle && (
+          <button
+            type="button"
+            aria-label={revealing ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            onMouseDown={startReveal}
+            onMouseUp={stopReveal}
+            onMouseLeave={stopReveal}
+            onTouchStart={startReveal}
+            onTouchEnd={stopReveal}
+            tabIndex={-1}
+            className="shrink-0 select-none text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+            disabled={disabled}
+          >
+            {revealing
+              ? <EyeOff className="size-4" />
+              : <Eye className="size-4" />}
+          </button>
+        )}
       </span>
     </label>
   )
