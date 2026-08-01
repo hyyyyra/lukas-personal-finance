@@ -11,6 +11,7 @@ import {
 import { useMemo, useState } from 'react'
 import { AddExpenseDialog } from '@/components/dashboard/add-expense-dialog'
 import { BudgetOverview } from '@/components/dashboard/budget-overview'
+import { EditableStatCard } from '@/components/dashboard/editable-stat-card'
 import { EditEssentialsDialog } from '@/components/dashboard/edit-essentials-dialog'
 import { ExpenseList } from '@/components/dashboard/expense-list'
 import { LukasLogo } from '@/components/lukas-logo'
@@ -83,22 +84,33 @@ export function HomeScreen() {
               spent={spent}
             />
 
-            {/* Tarjetas de datos esenciales */}
+            {/* Tarjetas de datos esenciales — toca un valor para editarlo al instante */}
             <div className="mt-4 grid grid-cols-3 gap-3 lg:mt-5 lg:gap-4">
-              <StatCard
+              <EditableStatCard
                 icon={<Wallet className="size-4" />}
                 label="Ingresos"
-                value={formatCLP(essentials.monthlyIncome)}
+                value={essentials.monthlyIncome}
+                onSave={(v) => updateEssentials({ ...essentials, monthlyIncome: v })}
               />
-              <StatCard
+              <EditableStatCard
                 icon={<Receipt className="size-4" />}
                 label="Gastos fijos"
-                value={formatCLP(essentials.essentialExpenses)}
+                value={essentials.essentialExpenses}
+                onSave={(v) =>
+                  updateEssentials({
+                    ...essentials,
+                    essentialExpenses: v,
+                    essentialItems: [
+                      { id: 'gastos-fijos', label: 'Gastos indispensables', amount: v },
+                    ],
+                  })
+                }
               />
-              <StatCard
+              <EditableStatCard
                 icon={<PiggyBank className="size-4" />}
                 label="Ahorro"
-                value={formatCLP(essentials.baseSavings)}
+                value={essentials.baseSavings}
+                onSave={(v) => updateEssentials({ ...essentials, baseSavings: v })}
               />
             </div>
 
@@ -167,29 +179,5 @@ export function HomeScreen() {
         onSave={updateEssentials}
       />
     </main>
-  )
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-3">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
-        {icon}
-      </span>
-      <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">
-        {value}
-      </p>
-    </div>
   )
 }
