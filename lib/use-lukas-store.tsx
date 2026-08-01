@@ -21,17 +21,18 @@ const STORAGE_KEY = 'lukas.state.v1'
 
 const INITIAL_STATE: LukasState = {
   user: null,
+  token: null,
   onboardingComplete: false,
   essentials: DEFAULT_ESSENTIALS,
   expenses: [],
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/public/api/'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 interface LukasContextValue extends LukasState {
   hydrated: boolean
   login: (credentials: {
-    id_usuario: number  
+    id_usuario: number
     email: string
     password?: string
     nombre?: string
@@ -59,10 +60,13 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
 
   // Cargar datos del usuario desde la base de datos
-  const loadUserData = useCallback(async (id_usuario: number) => {
+  const loadUserData = useCallback(async (id_usuario: number, token: string) => {
+    const authHeaders = { Authorization: `Bearer ${token}` }
     try {
       // 1. Obtener perfil financiero y gastos indispensables
-      const resEssentials = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`)
+      const resEssentials = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
+        headers: authHeaders,
+      })
       let onboardingComplete = false
       let essentials = DEFAULT_ESSENTIALS
 
@@ -86,7 +90,9 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Obtener gastos variables
       let expenses: Expense[] = []
-      const resExpenses = await fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}`)
+      const resExpenses = await fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}`, {
+        headers: authHeaders,
+      })
       if (resExpenses.ok) {
         const data = await resExpenses.json()
         if (data.gastos) {
@@ -129,8 +135,8 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
           },
         })
 
-        if (parsed.user?.id_usuario) {
-          loadUserData(parsed.user.id_usuario)
+        if (parsed.user?.id_usuario && parsed.token) {
+          loadUserData(parsed.user.id_usuario, parsed.token)
         }
       }
     } catch (error) {
@@ -152,7 +158,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (credentials: {
     id_usuario: number
     email: string
-    password?: string 
+    password?: string
     nombre?: string
     apellido?: string
     nombres?: string
@@ -176,15 +182,15 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       },
       body: JSON.stringify(body),
     })
-      
-    //FTR: Controla respuesta de inicio de sesión fallida. 
+
+    //FTR: Controla respuesta de inicio de sesión fallida.
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
       throw new Error(errData.error || 'Error en el inicio de sesión')
     }
 
     const data = await res.json()
-    if (!data.usuario) {
+    if (!data.usuario || !data.token) {
       throw new Error('Respuesta inválida del servidor')
     }
 
@@ -193,13 +199,12 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       nombre: data.usuario.nombre,
       apellido: data.usuario.apellido,
       email: data.usuario.email,
-      password: password,
       created_at: data.usuario.created_at ?? created_at ?? new Date().toISOString(),
       logged_at: data.usuario.logged_at ?? logged_at ?? null,
     }
 
-    setState((prev) => ({ ...prev, user: userProfile }))
-    await loadUserData(userProfile.id_usuario)
+    await loadUserData(userProfile.id_usuario, data.token)
+    setState((prev) => ({ ...prev, user: userProfile, token: data.token }))
   }, [loadUserData])
 
   const loginWithGoogle = useCallback(async (credential: string) => {
@@ -215,7 +220,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
     }
 
     const data = await res.json()
-    if (!data.usuario) {
+    if (!data.usuario || !data.token) {
       throw new Error('Respuesta inválida del servidor')
     }
 
@@ -224,13 +229,12 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       nombre: data.usuario.nombre,
       apellido: data.usuario.apellido,
       email: data.usuario.email,
-      password: '',
       created_at: data.usuario.created_at ?? new Date().toISOString(),
       logged_at: data.usuario.logged_at ?? null,
     }
 
-    setState((prev) => ({ ...prev, user: userProfile }))
-    await loadUserData(userProfile.id_usuario)
+    await loadUserData(userProfile.id_usuario, data.token)
+    setState((prev) => ({ ...prev, user: userProfile, token: data.token }))
   }, [loadUserData])
 
   const signin = useCallback(async (credentials: { email: string; password: string }) => {
@@ -248,7 +252,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
     }
 
     const data = await res.json()
-    if (!data.usuario) {
+    if (!data.usuario || !data.token) {
       throw new Error('Respuesta inválida del servidor')
     }
 
@@ -257,13 +261,12 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       nombre: data.usuario.nombre,
       apellido: data.usuario.apellido,
       email: data.usuario.email,
-      password,
       created_at: data.usuario.created_at ?? new Date().toISOString(),
       logged_at: data.usuario.logged_at ?? null,
     }
 
-    setState((prev) => ({ ...prev, user: userProfile }))
-    await loadUserData(userProfile.id_usuario)
+    await loadUserData(userProfile.id_usuario, data.token)
+    setState((prev) => ({ ...prev, user: userProfile, token: data.token }))
   }, [loadUserData])
 
   const logout = useCallback(() => {
@@ -271,36 +274,9 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const completeOnboarding = useCallback(async (essentials: EssentialData) => {
-    if (!state.user) return
+    if (!state.user || !state.token) return
     const id_usuario = state.user.id_usuario
-
-    const body = {
-      ingreso_mensual: essentials.monthlyIncome,
-      total_gastos_indispensables: essentials.essentialExpenses,
-      ahorro_base: essentials.baseSavings,
-      periodo_presupuesto: FIXED_BUDGET_PERIOD,
-    }
-
-    const res = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      throw new Error(errData.error || 'Error al guardar los datos esenciales')
-    }
-
-    await loadUserData(id_usuario)
-    setState((prev) => ({ ...prev, onboardingComplete: true }))
-  }, [state.user, loadUserData])
-
-  const updateEssentials = useCallback(async (essentials: EssentialData) => {
-    if (!state.user) return
-    const id_usuario = state.user.id_usuario
+    const token = state.token
 
     const body = {
       ingreso_mensual: essentials.monthlyIncome,
@@ -317,6 +293,41 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al guardar los datos esenciales')
+    }
+
+    await loadUserData(id_usuario, token)
+    setState((prev) => ({ ...prev, essentials, onboardingComplete: true }))
+  }, [state.user, state.token, loadUserData])
+
+  const updateEssentials = useCallback(async (essentials: EssentialData) => {
+    if (!state.user || !state.token) return
+    const id_usuario = state.user.id_usuario
+    const token = state.token
+
+    const body = {
+      ingreso_mensual: essentials.monthlyIncome,
+      total_gastos_indispensables: essentials.essentialExpenses,
+      ahorro_base: essentials.baseSavings,
+      periodo_presupuesto: FIXED_BUDGET_PERIOD,
+      gastos_indispensables: essentials.essentialItems.map((item) => ({
+        etiqueta: item.label,
+        monto: item.amount,
+      })),
+    }
+
+    const res = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     })
@@ -326,12 +337,13 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al actualizar los datos esenciales')
     }
 
-    await loadUserData(id_usuario)
-  }, [state.user, loadUserData])
+    await loadUserData(id_usuario, token)
+  }, [state.user, state.token, loadUserData])
 
   const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
-    if (!state.user) return
+    if (!state.user || !state.token) return
     const id_usuario = state.user.id_usuario
+    const token = state.token
 
     const body = {
       etiqueta: expense.title,
@@ -344,6 +356,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     })
@@ -353,15 +366,19 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al guardar el gasto')
     }
 
-    await loadUserData(id_usuario)
-  }, [state.user, loadUserData])
+    await loadUserData(id_usuario, token)
+  }, [state.user, state.token, loadUserData])
 
   const removeExpense = useCallback(async (id: string) => {
-    if (!state.user) return
+    if (!state.user || !state.token) return
     const id_usuario = state.user.id_usuario
+    const token = state.token
 
     const res = await fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}&id=${id}`, {
       method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     })
 
     if (!res.ok) {
@@ -369,8 +386,8 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al eliminar el gasto')
     }
 
-    await loadUserData(id_usuario)
-  }, [state.user, loadUserData])
+    await loadUserData(id_usuario, token)
+  }, [state.user, state.token, loadUserData])
 
   const reset = useCallback(() => {
     setState(INITIAL_STATE)

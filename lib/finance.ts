@@ -26,7 +26,6 @@ export interface UserProfile {
   nombre: string
   apellido: string
   email: string
-  password: string
   created_at: string // ISO date
   logged_at: string | null
 }
@@ -47,6 +46,7 @@ export interface EssentialData {
 
 export interface LukasState {
   user: UserProfile | null
+  token: string | null
   onboardingComplete: boolean
   essentials: EssentialData
   expenses: Expense[]

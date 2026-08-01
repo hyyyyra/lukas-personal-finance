@@ -43,7 +43,7 @@ export function HomeScreen() {
   )
   const spent = useMemo(() => totalSpent(periodExpenses), [periodExpenses])
 
-  const firstName = user?.name?.split(' ')[0] ?? 'usuario'
+  const firstName = user?.nombre?.split(' ')[0] ?? 'usuario'
 
   return (
     <main className="min-h-dvh bg-background pb-28 lg:pb-12">
@@ -124,14 +124,19 @@ export function HomeScreen() {
           <section className="mt-8 lg:mt-0">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-serif text-xl text-foreground lg:text-2xl">
-                Gastos del periodo
+                Listado de gastos
               </h2>
-              <span className="text-xs text-muted-foreground">
-                {periodExpenses.length}{' '}
-                {periodExpenses.length === 1 ? 'movimiento' : 'movimientos'}
+              <span className="text-xs font-medium text-muted-foreground">
+                {periodExpenses.length + (essentials.essentialItems?.length || 0)}{' '}
+                registros
               </span>
             </div>
-            <ExpenseList expenses={periodExpenses} onRemove={removeExpense} />
+            <ExpenseList
+              expenses={periodExpenses}
+              essentialItems={essentials.essentialItems}
+              onRemove={removeExpense}
+              onEditEssentials={() => setEditOpen(true)}
+            />
           </section>
         </div>
       </div>
