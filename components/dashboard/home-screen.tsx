@@ -1,28 +1,29 @@
 'use client'
 
-import {
-  LogOut,
-  PiggyBank,
-  Plus,
-  Receipt,
-  SlidersHorizontal,
-  Wallet,
-} from 'lucide-react'
+import { LogOut, PiggyBank, Plus, Receipt, Wallet } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { AddExpenseDialog } from '@/components/dashboard/add-expense-dialog'
+import { AddFixedExpenseDialog } from '@/components/dashboard/add-fixed-expense-dialog'
 import { BudgetOverview } from '@/components/dashboard/budget-overview'
 import { EditableStatCard } from '@/components/dashboard/editable-stat-card'
-import { EditEssentialsDialog } from '@/components/dashboard/edit-essentials-dialog'
 import { ExpenseList } from '@/components/dashboard/expense-list'
 import { LukasLogo } from '@/components/lukas-logo'
 import {
   FIXED_BUDGET_PERIOD,
+  type EssentialItem,
   expensesInPeriod,
   formatCLP,
   monthlyBudgetCap,
+  sumEssentialItems,
   totalSpent,
 } from '@/lib/finance'
 import { useLukas } from '@/lib/use-lukas-store'
+
+function makeEssentialItemId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+}
 
 export function HomeScreen() {
   const {
@@ -36,7 +37,7 @@ export function HomeScreen() {
   } = useLukas()
 
   const [addOpen, setAddOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
+  const [addFixedOpen, setAddFixedOpen] = useState(false)
 
   const periodExpenses = useMemo(
     () => expensesInPeriod(expenses, FIXED_BUDGET_PERIOD),
@@ -45,6 +46,28 @@ export function HomeScreen() {
   const spent = useMemo(() => totalSpent(periodExpenses), [periodExpenses])
 
   const firstName = user?.nombre?.split(' ')[0] ?? 'usuario'
+
+  // Los gastos fijos se administran ítem por ítem, igual que los variables.
+  async function addFixedExpense(item: { label: string; amount: number }) {
+    const newItems: EssentialItem[] = [
+      ...essentials.essentialItems,
+      { id: makeEssentialItemId(), label: item.label, amount: item.amount },
+    ]
+    await updateEssentials({
+      ...essentials,
+      essentialItems: newItems,
+      essentialExpenses: sumEssentialItems(newItems),
+    })
+  }
+
+  async function removeFixedExpense(id: string) {
+    const newItems = essentials.essentialItems.filter((it) => it.id !== id)
+    await updateEssentials({
+      ...essentials,
+      essentialItems: newItems,
+      essentialExpenses: sumEssentialItems(newItems),
+    })
+  }
 
   return (
     <main className="min-h-dvh bg-background pb-28 lg:pb-12">
@@ -55,24 +78,14 @@ export function HomeScreen() {
             <p className="text-sm text-muted-foreground">Hola, {firstName}</p>
             <LukasLogo showWordmark className="mt-0.5" />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              aria-label="Editar datos esenciales"
-              className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted"
-            >
-              <SlidersHorizontal className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={logout}
-              aria-label="Cerrar sesión"
-              className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <LogOut className="size-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="Cerrar sesión"
+            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <LogOut className="size-4" />
+          </button>
         </header>
 
         {/* En desktop: dos columnas. En móvil: una sola columna apilada. */}
@@ -84,7 +97,8 @@ export function HomeScreen() {
               spent={spent}
             />
 
-            {/* Tarjetas de datos esenciales — toca un valor para editarlo al instante */}
+            {/* Tarjetas de datos esenciales — toca ingresos/ahorro para editarlos al instante.
+                Gastos fijos es un total derivado: se administra por ítem en el listado. */}
             <div className="mt-4 grid grid-cols-3 gap-3 lg:mt-5 lg:gap-4">
               <EditableStatCard
                 icon={<Wallet className="size-4" />}
@@ -96,15 +110,6 @@ export function HomeScreen() {
                 icon={<Receipt className="size-4" />}
                 label="Gastos fijos"
                 value={essentials.essentialExpenses}
-                onSave={(v) =>
-                  updateEssentials({
-                    ...essentials,
-                    essentialExpenses: v,
-                    essentialItems: [
-                      { id: 'gastos-fijos', label: 'Gastos indispensables', amount: v },
-                    ],
-                  })
-                }
               />
               <EditableStatCard
                 icon={<PiggyBank className="size-4" />}
@@ -147,7 +152,8 @@ export function HomeScreen() {
               expenses={periodExpenses}
               essentialItems={essentials.essentialItems}
               onRemove={removeExpense}
-              onEditEssentials={() => setEditOpen(true)}
+              onRemoveFixed={removeFixedExpense}
+              onAddFixed={() => setAddFixedOpen(true)}
             />
           </section>
         </div>
@@ -172,11 +178,10 @@ export function HomeScreen() {
         onClose={() => setAddOpen(false)}
         onAdd={addExpense}
       />
-      <EditEssentialsDialog
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        essentials={essentials}
-        onSave={updateEssentials}
+      <AddFixedExpenseDialog
+        open={addFixedOpen}
+        onClose={() => setAddFixedOpen(false)}
+        onAdd={addFixedExpense}
       />
     </main>
   )

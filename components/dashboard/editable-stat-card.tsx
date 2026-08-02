@@ -6,8 +6,10 @@ import { formatCLP, formatNumber, parseAmount } from '@/lib/finance'
 import { cn } from '@/lib/utils'
 
 /**
- * Tarjeta de estadística editable en el dashboard.
- * Un click activa edición inline (número) con guardado en blur/Enter.
+ * Tarjeta de estadística en el dashboard.
+ * - Con `onSave`: un click activa edición inline (número) con guardado en blur/Enter.
+ * - Sin `onSave` (`readOnly`): tarjeta puramente informativa, para valores derivados
+ *   (ej. total de gastos fijos, que se administra ítem por ítem en el listado).
  */
 export function EditableStatCard({
   icon,
@@ -18,7 +20,7 @@ export function EditableStatCard({
   icon: React.ReactNode
   label: string
   value: number
-  onSave: (value: number) => Promise<void>
+  onSave?: (value: number) => Promise<void>
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -38,7 +40,7 @@ export function EditableStatCard({
   }, [editing])
 
   async function commit() {
-    if (draft === value) {
+    if (!onSave || draft === value) {
       setEditing(false)
       setError(null)
       return
@@ -85,6 +87,22 @@ export function EditableStatCard({
           className="mt-0.5 w-full bg-transparent text-sm font-semibold tabular-nums text-foreground outline-none disabled:opacity-50"
         />
         {error && <p className="mt-1 text-[10px] font-medium text-destructive">{error}</p>}
+      </div>
+    )
+  }
+
+  if (!onSave) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-3 text-left">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+          {icon}
+        </span>
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">
+          {formatCLP(value)}
+        </p>
       </div>
     )
   }

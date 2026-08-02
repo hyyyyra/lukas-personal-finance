@@ -58,7 +58,7 @@ export function OnboardingCarousel() {
     },
     {
       icon: <Receipt className="size-5" />,
-      title: 'Gastos indispensables',
+      title: 'Gastos fijos',
       subtitle:
         'Detalla cada gasto que pagas si o si (arriendo, cuentas, transporte). Se sumaran en tu total.',
       field: (

@@ -112,7 +112,7 @@ export function EssentialsItemsEditor({
 
       <div className="flex items-center justify-between rounded-xl bg-secondary/60 px-4 py-3">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Total indispensable
+          Total gastos fijos
         </span>
         <span className="font-serif text-xl tabular-nums text-foreground">
           {formatCLP(total)}

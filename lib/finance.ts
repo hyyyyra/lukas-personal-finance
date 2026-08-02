@@ -62,7 +62,7 @@ export const DEFAULT_ESSENTIALS: EssentialData = {
   budgetPeriod: FIXED_BUDGET_PERIOD,
 }
 
-/** Categorías sugeridas para gastos indispensables */
+/** Categorías sugeridas para gastos fijos */
 export const ESSENTIAL_SUGGESTIONS = [
   'Arriendo / Dividendo',
   'Cuentas (luz, agua, gas)',

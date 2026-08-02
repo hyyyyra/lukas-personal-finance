@@ -10,8 +10,8 @@ import {
   Keyboard,
   Package,
   Pin,
+  Plus,
   ReceiptText,
-  Settings,
   ShoppingBag,
   Trash2,
   Utensils,
@@ -58,12 +58,14 @@ export function ExpenseList({
   expenses,
   essentialItems = [],
   onRemove,
-  onEditEssentials,
+  onRemoveFixed,
+  onAddFixed,
 }: {
   expenses: Expense[]
   essentialItems?: EssentialItem[]
   onRemove: (id: string) => void
-  onEditEssentials?: () => void
+  onRemoveFixed: (id: string) => void
+  onAddFixed: () => void
 }) {
   const [filter, setFilter] = useState<'todos' | 'variables' | 'fijos'>('todos')
 
@@ -81,48 +83,67 @@ export function ExpenseList({
           Aún no registras gastos
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Ingresa tus gastos fijos indispensables o tus compras del periodo.
+          Ingresa tus gastos fijos o tus compras del periodo.
         </p>
+        <button
+          type="button"
+          onClick={onAddFixed}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+        >
+          <Plus className="size-3.5" />
+          Agregar gasto fijo
+        </button>
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Filtros por pestaña */}
-      <div className="flex items-center gap-1.5 rounded-xl border border-border bg-card p-1 text-xs font-medium">
+      {/* Filtros por pestaña + acción rápida para gastos fijos */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center gap-1.5 rounded-xl border border-border bg-card p-1 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setFilter('todos')}
+            className={`flex-1 rounded-lg px-2.5 py-1.5 transition-colors ${
+              filter === 'todos'
+                ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            Todos ({totalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('variables')}
+            className={`flex-1 rounded-lg px-2.5 py-1.5 transition-colors ${
+              filter === 'variables'
+                ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            Variables ({expenses.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('fijos')}
+            className={`flex-1 rounded-lg px-2.5 py-1.5 transition-colors ${
+              filter === 'fijos'
+                ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            Gastos Fijos ({essentialItems.length})
+          </button>
+        </div>
         <button
           type="button"
-          onClick={() => setFilter('todos')}
-          className={`flex-1 rounded-lg px-2.5 py-1.5 transition-colors ${
-            filter === 'todos'
-              ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          }`}
+          onClick={onAddFixed}
+          aria-label="Agregar gasto fijo"
+          title="Agregar gasto fijo"
+          className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
         >
-          Todos ({totalCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter('variables')}
-          className={`flex-1 rounded-lg px-2.5 py-1.5 transition-colors ${
-            filter === 'variables'
-              ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          }`}
-        >
-          Variables ({expenses.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter('fijos')}
-          className={`flex-1 rounded-lg px-2.5 py-1.5 transition-colors ${
-            filter === 'fijos'
-              ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          }`}
-        >
-          Gastos Fijos ({essentialItems.length})
+          <Plus className="size-4" />
         </button>
       </div>
 
@@ -147,23 +168,20 @@ export function ExpenseList({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Indispensable mensual
+                  Fijo mensual
                 </p>
               </div>
               <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
                 −{formatCLP(item.amount)}
               </span>
-              {onEditEssentials && (
-                <button
-                  type="button"
-                  onClick={onEditEssentials}
-                  aria-label={`Editar ${item.label}`}
-                  title="Editar gastos fijos"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Settings className="size-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => onRemoveFixed(item.id)}
+                aria-label={`Eliminar ${item.label}`}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="size-4" />
+              </button>
             </li>
           ))}
 
@@ -218,16 +236,14 @@ export function ExpenseList({
         {/* Estados vacíos por categoría */}
         {filter === 'fijos' && !hasFijos && (
           <div className="py-6 text-center text-xs text-muted-foreground">
-            No tienes gastos fijos configurados.
-            {onEditEssentials && (
-              <button
-                type="button"
-                onClick={onEditEssentials}
-                className="ml-1 font-semibold text-primary underline"
-              >
-                Agregar gastos fijos
-              </button>
-            )}
+            No tienes gastos fijos configurados.{' '}
+            <button
+              type="button"
+              onClick={onAddFixed}
+              className="font-semibold text-primary underline"
+            >
+              Agregar gasto fijo
+            </button>
           </div>
         )}
 
