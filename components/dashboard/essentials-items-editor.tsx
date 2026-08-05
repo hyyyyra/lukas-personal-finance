@@ -3,14 +3,18 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { MoneyInput } from '@/components/ui/money-input'
 import {
+  ESSENTIAL_CATEGORY_LABEL,
   ESSENTIAL_SUGGESTIONS,
+  type EssentialCategory,
   type EssentialItem,
   formatCLP,
   sumEssentialItems,
 } from '@/lib/finance'
 import { cn } from '@/lib/utils'
 
-function makeItem(label = ''): EssentialItem {
+const CATEGORIES = Object.keys(ESSENTIAL_CATEGORY_LABEL) as EssentialCategory[]
+
+function makeItem(label = '', category: EssentialCategory = 'otros'): EssentialItem {
   return {
     id:
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -18,6 +22,7 @@ function makeItem(label = ''): EssentialItem {
         : Math.random().toString(36).slice(2),
     label,
     amount: 0,
+    category,
   }
 }
 
@@ -36,8 +41,8 @@ export function EssentialsItemsEditor({
     onChange(items.map((it) => (it.id === id ? { ...it, ...patch } : it)))
   }
 
-  function addItem(label = '') {
-    onChange([...items, makeItem(label)])
+  function addItem(label = '', category: EssentialCategory = 'otros') {
+    onChange([...items, makeItem(label, category)])
   }
 
   function removeItem(id: string) {
@@ -49,7 +54,7 @@ export function EssentialsItemsEditor({
     items.map((it) => it.label.trim().toLowerCase()).filter(Boolean),
   )
   const remainingSuggestions = ESSENTIAL_SUGGESTIONS.filter(
-    (s) => !usedLabels.has(s.toLowerCase()),
+    (s) => !usedLabels.has(s.label.toLowerCase()),
   )
 
   return (
@@ -57,30 +62,55 @@ export function EssentialsItemsEditor({
       {items.length > 0 && (
         <ul className="flex flex-col gap-2.5">
           {items.map((item) => (
-            <li key={item.id} className="flex items-start gap-2">
-              <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-                <input
-                  value={item.label}
-                  onChange={(e) => updateItem(item.id, { label: e.target.value })}
-                  placeholder="Ej. Arriendo"
-                  aria-label="Nombre del gasto"
-                  className="h-12 w-full rounded-xl border border-input bg-card px-3 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-ring focus:ring-3 focus:ring-ring/20 sm:w-[45%]"
-                />
-                <MoneyInput
-                  value={item.amount}
-                  onChange={(v) => updateItem(item.id, { amount: v })}
-                  placeholder="0"
-                  className="flex-1"
-                />
+            <li
+              key={item.id}
+              className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-3"
+            >
+              <div className="flex items-start gap-2">
+                <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+                  <input
+                    value={item.label}
+                    onChange={(e) => updateItem(item.id, { label: e.target.value })}
+                    placeholder="Ej. Arriendo"
+                    aria-label="Nombre del gasto"
+                    className="h-12 w-full rounded-xl border border-input bg-card px-3 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-ring focus:ring-3 focus:ring-ring/20 sm:w-[40%]"
+                  />
+                  <MoneyInput
+                    value={item.amount}
+                    onChange={(v) => updateItem(item.id, { amount: v })}
+                    placeholder="0"
+                    className="flex-1"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  aria-label={`Eliminar ${item.label || 'gasto'}`}
+                  className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                aria-label={`Eliminar ${item.label || 'gasto'}`}
-                className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
-              >
-                <Trash2 className="size-4" />
-              </button>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="shrink-0 font-medium uppercase tracking-wide">
+                  Categoría
+                </span>
+                <select
+                  value={item.category}
+                  onChange={(e) =>
+                    updateItem(item.id, {
+                      category: e.target.value as EssentialCategory,
+                    })
+                  }
+                  className="h-9 flex-1 rounded-lg border border-input bg-card px-2 text-xs font-medium text-foreground outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {ESSENTIAL_CATEGORY_LABEL[c]}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </li>
           ))}
         </ul>
@@ -99,12 +129,12 @@ export function EssentialsItemsEditor({
         <div className="flex flex-wrap gap-1.5">
           {remainingSuggestions.map((s) => (
             <button
-              key={s}
+              key={s.label}
               type="button"
-              onClick={() => addItem(s)}
+              onClick={() => addItem(s.label, s.category)}
               className="rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground transition-colors hover:bg-muted"
             >
-              + {s}
+              + {s.label}
             </button>
           ))}
         </div>

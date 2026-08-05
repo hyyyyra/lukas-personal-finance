@@ -9,8 +9,9 @@ import { EditableStatCard } from '@/components/dashboard/editable-stat-card'
 import { ExpenseList } from '@/components/dashboard/expense-list'
 import { LukasLogo } from '@/components/lukas-logo'
 import {
-  FIXED_BUDGET_PERIOD,
+  type EssentialCategory,
   type EssentialItem,
+  FIXED_BUDGET_PERIOD,
   expensesInPeriod,
   formatCLP,
   monthlyBudgetCap,
@@ -48,10 +49,19 @@ export function HomeScreen() {
   const firstName = user?.nombre?.split(' ')[0] ?? 'usuario'
 
   // Los gastos fijos se administran ítem por ítem, igual que los variables.
-  async function addFixedExpense(item: { label: string; amount: number }) {
+  async function addFixedExpense(item: {
+    label: string
+    amount: number
+    category: EssentialCategory
+  }) {
     const newItems: EssentialItem[] = [
       ...essentials.essentialItems,
-      { id: makeEssentialItemId(), label: item.label, amount: item.amount },
+      {
+        id: makeEssentialItemId(),
+        label: item.label,
+        amount: item.amount,
+        category: item.category,
+      },
     ]
     await updateEssentials({
       ...essentials,

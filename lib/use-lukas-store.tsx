@@ -83,6 +83,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
               id: String(item.id_gastoindispensable),
               label: item.etiqueta,
               amount: Number(item.monto),
+              category: item.categoria || 'otros',
             })),
           }
         }
@@ -286,6 +287,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       gastos_indispensables: essentials.essentialItems.map((item) => ({
         etiqueta: item.label,
         monto: item.amount,
+        categoria: item.category,
       })),
     }
 
@@ -320,6 +322,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       gastos_indispensables: essentials.essentialItems.map((item) => ({
         etiqueta: item.label,
         monto: item.amount,
+        categoria: item.category,
       })),
     }
 

@@ -30,10 +30,21 @@ export interface UserProfile {
   logged_at: string | null
 }
 
+export type EssentialCategory =
+  | 'vivienda'
+  | 'servicios'
+  | 'transporte'
+  | 'salud'
+  | 'educacion'
+  | 'creditos'
+  | 'suscripciones'
+  | 'otros'
+
 export interface EssentialItem {
   id: string
   label: string
   amount: number
+  category: EssentialCategory
 }
 
 export interface EssentialData {
@@ -62,17 +73,29 @@ export const DEFAULT_ESSENTIALS: EssentialData = {
   budgetPeriod: FIXED_BUDGET_PERIOD,
 }
 
-/** Categorías sugeridas para gastos fijos */
-export const ESSENTIAL_SUGGESTIONS = [
-  'Arriendo / Dividendo',
-  'Cuentas (luz, agua, gas)',
-  'Internet y telefonía',
-  'Transporte',
-  'Supermercado',
-  'Créditos',
-  'Educación',
-  'Salud e isapre',
-] as const
+/** Sugerencias de gastos fijos, con su categoría por defecto */
+export const ESSENTIAL_SUGGESTIONS: { label: string; category: EssentialCategory }[] = [
+  { label: 'Arriendo / Dividendo', category: 'vivienda' },
+  { label: 'Cuentas (luz, agua, gas)', category: 'servicios' },
+  { label: 'Internet y telefonía', category: 'servicios' },
+  { label: 'Transporte', category: 'transporte' },
+  { label: 'Supermercado', category: 'otros' },
+  { label: 'Créditos', category: 'creditos' },
+  { label: 'Educación', category: 'educacion' },
+  { label: 'Salud e isapre', category: 'salud' },
+  { label: 'Suscripciones', category: 'suscripciones' },
+]
+
+export const ESSENTIAL_CATEGORY_LABEL: Record<EssentialCategory, string> = {
+  vivienda: 'Vivienda',
+  servicios: 'Servicios',
+  transporte: 'Transporte',
+  salud: 'Salud',
+  educacion: 'Educación',
+  creditos: 'Créditos',
+  suscripciones: 'Suscripciones',
+  otros: 'Otros',
+}
 
 /** Suma el total de una lista de ítems de gasto */
 export function sumEssentialItems(items: EssentialItem[]): number {

@@ -3,15 +3,17 @@
 import {
   Camera,
   Car,
+  CreditCard,
   FileText,
   Film,
+  GraduationCap,
   Heart,
   Home,
   Keyboard,
   Package,
-  Pin,
   Plus,
   ReceiptText,
+  Repeat,
   ShoppingBag,
   Trash2,
   Utensils,
@@ -21,6 +23,8 @@ import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import {
   CATEGORY_LABEL,
+  ESSENTIAL_CATEGORY_LABEL,
+  type EssentialCategory,
   type EssentialItem,
   type Expense,
   type ExpenseCategory,
@@ -36,6 +40,17 @@ const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
   ocio: Film,
   compras: ShoppingBag,
   servicios: Zap,
+  otros: Package,
+}
+
+const ESSENTIAL_CATEGORY_ICON: Record<EssentialCategory, LucideIcon> = {
+  vivienda: Home,
+  servicios: Zap,
+  transporte: Car,
+  salud: Heart,
+  educacion: GraduationCap,
+  creditos: CreditCard,
+  suscripciones: Repeat,
   otros: Package,
 }
 
@@ -150,40 +165,43 @@ export function ExpenseList({
       <ul className="flex flex-col gap-2">
         {/* Renderizar Gastos Fijos si (filter === 'todos' o 'fijos') */}
         {(filter === 'todos' || filter === 'fijos') &&
-          essentialItems.map((item) => (
-            <li
-              key={`fijo-${item.id}`}
-              className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-3 shadow-2xs"
-            >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Pin className="size-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {item.label || 'Gasto fijo'}
-                  </p>
-                  <span className="inline-flex shrink-0 items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                    Gasto Fijo
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Fijo mensual
-                </p>
-              </div>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
-                −{formatCLP(item.amount)}
-              </span>
-              <button
-                type="button"
-                onClick={() => onRemoveFixed(item.id)}
-                aria-label={`Eliminar ${item.label}`}
-                className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          essentialItems.map((item) => {
+            const Icon = ESSENTIAL_CATEGORY_ICON[item.category] ?? Package
+            return (
+              <li
+                key={`fijo-${item.id}`}
+                className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-3 shadow-2xs"
               >
-                <Trash2 className="size-4" />
-              </button>
-            </li>
-          ))}
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Icon className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {item.label || 'Gasto fijo'}
+                    </p>
+                    <span className="inline-flex shrink-0 items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      Fijo
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {ESSENTIAL_CATEGORY_LABEL[item.category] ?? 'Otros'}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                  −{formatCLP(item.amount)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveFixed(item.id)}
+                  aria-label={`Eliminar ${item.label}`}
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </li>
+            )
+          })}
 
         {/* Separador visual en la vista 'todos' cuando existen ambos tipos de gastos */}
         {filter === 'todos' && hasFijos && hasVariables && (
