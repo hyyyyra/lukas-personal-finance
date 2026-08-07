@@ -18,7 +18,7 @@ const fraunces = Fraunces({
 })
 
 const SITE_URL = 'https://lukas-personal-finance.vercel.app'
-const TITLE = 'Lukas — Ordena tus lucas'
+const TITLE = 'Lukas'
 const DESCRIPTION =
   'Presupuesto mensual en pesos chilenos: registra tus gastos, marca tus cuentas pagadas y avanza tus metas de ahorro. Claro, rápido y sin conectar tu banco.'
 
