@@ -45,6 +45,16 @@ export interface EssentialItem {
   label: string
   amount: number
   category: EssentialCategory
+  /** Periodo 'YYYY-MM' en que se marcó como pagado; null = pendiente */
+  paidPeriod: string | null
+}
+
+export interface SavingsGoal {
+  id: string
+  name: string
+  target: number
+  saved: number
+  createdAt: string
 }
 
 export interface EssentialData {
@@ -61,6 +71,7 @@ export interface LukasState {
   onboardingComplete: boolean
   essentials: EssentialData
   expenses: Expense[]
+  goals: SavingsGoal[]
 }
 
 export const FIXED_BUDGET_PERIOD: BudgetPeriod = 'mensual'
@@ -179,4 +190,62 @@ export function expensesInPeriod(
 
 export function totalSpent(expenses: Expense[]): number {
   return expenses.reduce((sum, e) => sum + e.amount, 0)
+}
+
+/** Periodo actual en formato 'YYYY-MM' */
+export function currentPeriod(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** True si el gasto fijo está marcado como pagado en el mes en curso */
+export function isPaidThisMonth(item: EssentialItem): boolean {
+  return item.paidPeriod === currentPeriod()
+}
+
+/** Etiqueta legible de un periodo 'YYYY-MM' → 'Agosto 2026' */
+export function monthLabel(key: string): string {
+  const [year, month] = key.split('-').map(Number)
+  const label = new Intl.DateTimeFormat('es-CL', {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(year, month - 1, 1))
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+export interface MonthlySummary {
+  key: string // 'YYYY-MM'
+  label: string
+  total: number
+  byCategory: { category: ExpenseCategory; total: number }[]
+}
+
+/** Agrupa gastos variables por mes calendario, del más reciente al más antiguo */
+export function summarizeByMonth(
+  expenses: Expense[],
+  maxMonths = 6,
+): MonthlySummary[] {
+  const months = new Map<string, Map<ExpenseCategory, number>>()
+  for (const expense of expenses) {
+    const date = new Date(expense.createdAt)
+    if (Number.isNaN(date.getTime())) continue
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const byCategory = months.get(key) ?? new Map<ExpenseCategory, number>()
+    byCategory.set(expense.category, (byCategory.get(expense.category) ?? 0) + expense.amount)
+    months.set(key, byCategory)
+  }
+  return [...months.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, maxMonths)
+    .map(([key, cats]) => {
+      const byCategory = [...cats.entries()]
+        .map(([category, total]) => ({ category, total }))
+        .sort((a, b) => b.total - a.total)
+      return {
+        key,
+        label: monthLabel(key),
+        total: byCategory.reduce((sum, c) => sum + c.total, 0),
+        byCategory,
+      }
+    })
 }

@@ -3,6 +3,8 @@
 import {
   Camera,
   Car,
+  Check,
+  Clock,
   CreditCard,
   FileText,
   Film,
@@ -30,7 +32,9 @@ import {
   type ExpenseCategory,
   type ExpenseMethod,
   formatCLP,
+  isPaidThisMonth,
 } from '@/lib/finance'
+import { cn } from '@/lib/utils'
 
 const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
   comida: Utensils,
@@ -75,18 +79,21 @@ export function ExpenseList({
   onRemove,
   onRemoveFixed,
   onAddFixed,
+  onTogglePaidFixed,
 }: {
   expenses: Expense[]
   essentialItems?: EssentialItem[]
   onRemove: (id: string) => void
   onRemoveFixed: (id: string) => void
   onAddFixed: () => void
+  onTogglePaidFixed: (id: string) => void
 }) {
   const [filter, setFilter] = useState<'todos' | 'variables' | 'fijos'>('todos')
 
   const hasVariables = expenses.length > 0
   const hasFijos = essentialItems.length > 0
   const totalCount = expenses.length + essentialItems.length
+  const paidCount = essentialItems.filter(isPaidThisMonth).length
 
   if (totalCount === 0) {
     return (
@@ -162,11 +169,34 @@ export function ExpenseList({
         </button>
       </div>
 
+      {/* Progreso de pagos del mes (refuerzo de avance) */}
+      {filter !== 'variables' && hasFijos && (
+        <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-secondary/40 px-3.5 py-2.5">
+          <p className="text-xs font-medium text-muted-foreground">
+            {paidCount === essentialItems.length
+              ? '¡Todos tus gastos fijos del mes están pagados!'
+              : `Fijos pagados este mes: ${paidCount} de ${essentialItems.length}`}
+          </p>
+          <div className="ml-auto h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all duration-500',
+                paidCount === essentialItems.length ? 'bg-accent' : 'bg-primary',
+              )}
+              style={{
+                width: `${essentialItems.length > 0 ? (paidCount / essentialItems.length) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       <ul className="flex flex-col gap-2">
         {/* Renderizar Gastos Fijos si (filter === 'todos' o 'fijos') */}
         {(filter === 'todos' || filter === 'fijos') &&
           essentialItems.map((item) => {
             const Icon = ESSENTIAL_CATEGORY_ICON[item.category] ?? Package
+            const paid = isPaidThisMonth(item)
             return (
               <li
                 key={`fijo-${item.id}`}
@@ -191,6 +221,26 @@ export function ExpenseList({
                 <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
                   −{formatCLP(item.amount)}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => onTogglePaidFixed(item.id)}
+                  aria-pressed={paid}
+                  aria-label={
+                    paid
+                      ? `Marcar ${item.label} como pendiente`
+                      : `Marcar ${item.label} como pagado`
+                  }
+                  title={paid ? 'Pagado este mes (toca para desmarcar)' : 'Marcar como pagado'}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors',
+                    paid
+                      ? 'border-accent/30 bg-accent/15 text-accent'
+                      : 'border-border bg-secondary text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  {paid ? <Check className="size-3" /> : <Clock className="size-3" />}
+                  {paid ? 'Pagado' : 'Pendiente'}
+                </button>
                 <button
                   type="button"
                   onClick={() => onRemoveFixed(item.id)}

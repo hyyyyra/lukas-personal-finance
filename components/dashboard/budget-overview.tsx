@@ -59,8 +59,12 @@ export function BudgetOverview({
               <TrendingUp className="size-3.5" />
             )}
             {overBudget
-              ? 'Te pasaste del presupuesto'
-              : `Has usado el ${Math.round(pct)}%`}
+              ? 'Te pasaste del presupuesto: revisa tus gastos'
+              : pct < 50
+                ? `Vas muy bien: solo has usado el ${Math.round(pct)}%`
+                : pct < 75
+                  ? `Buen ritmo: has usado el ${Math.round(pct)}%`
+                  : `Atención: ya usaste el ${Math.round(pct)}%`}
           </span>
           <span>Gastado: {formatCLP(spent)}</span>
         </div>

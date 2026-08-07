@@ -23,6 +23,7 @@ function makeItem(label = '', category: EssentialCategory = 'otros'): EssentialI
     label,
     amount: 0,
     category,
+    paidPeriod: null,
   }
 }
 

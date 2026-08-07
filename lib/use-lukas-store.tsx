@@ -14,6 +14,7 @@ import {
   type EssentialData,
   type Expense,
   type LukasState,
+  type SavingsGoal,
   type UserProfile,
 } from '@/lib/finance'
 
@@ -25,6 +26,7 @@ const INITIAL_STATE: LukasState = {
   onboardingComplete: false,
   essentials: DEFAULT_ESSENTIALS,
   expenses: [],
+  goals: [],
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -50,6 +52,9 @@ interface LukasContextValue extends LukasState {
   updateEssentials: (essentials: EssentialData) => Promise<void>
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>
   removeExpense: (id: string) => Promise<void>
+  addGoal: (name: string, target: number) => Promise<void>
+  contributeToGoal: (id: string, amount: number) => Promise<void>
+  removeGoal: (id: string) => Promise<void>
   reset: () => void
 }
 
@@ -84,6 +89,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
               label: item.etiqueta,
               amount: Number(item.monto),
               category: item.categoria || 'otros',
+              paidPeriod: item.pagado_periodo ?? null,
             })),
           }
         }
@@ -108,11 +114,33 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // 3. Obtener metas de ahorro (tolerante a fallos: metas vacías si el
+      // endpoint no está disponible aún)
+      let goals: SavingsGoal[] = []
+      try {
+        const resGoals = await fetch(`${API_BASE_URL}/metas.php?id_usuario=${id_usuario}`, {
+          headers: authHeaders,
+        })
+        if (resGoals.ok) {
+          const data = await resGoals.json()
+          goals = (data.metas || []).map((m: any) => ({
+            id: String(m.id_meta),
+            name: m.nombre,
+            target: Number(m.monto_objetivo),
+            saved: Number(m.monto_actual),
+            createdAt: m.created_at,
+          }))
+        }
+      } catch {
+        // no-op: sin metas si el endpoint falla
+      }
+
       setState((prev) => ({
         ...prev,
         onboardingComplete,
         essentials,
         expenses,
+        goals,
       }))
     } catch (error) {
       console.error('Error cargando datos del backend:', error)
@@ -288,6 +316,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
         etiqueta: item.label,
         monto: item.amount,
         categoria: item.category,
+        pagado_periodo: item.paidPeriod ?? null,
       })),
     }
 
@@ -323,6 +352,7 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
         etiqueta: item.label,
         monto: item.amount,
         categoria: item.category,
+        pagado_periodo: item.paidPeriod ?? null,
       })),
     }
 
@@ -392,6 +422,72 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
     await loadUserData(id_usuario, token)
   }, [state.user, state.token, loadUserData])
 
+  const addGoal = useCallback(async (name: string, target: number) => {
+    if (!state.user || !state.token) return
+    const { id_usuario } = state.user
+    const token = state.token
+
+    const res = await fetch(`${API_BASE_URL}/metas.php?id_usuario=${id_usuario}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ nombre: name, monto_objetivo: target }),
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al crear la meta de ahorro')
+    }
+
+    await loadUserData(id_usuario, token)
+  }, [state.user, state.token, loadUserData])
+
+  const contributeToGoal = useCallback(async (id: string, amount: number) => {
+    if (!state.user || !state.token) return
+    const goal = state.goals.find((g) => g.id === id)
+    if (!goal) return
+    const { id_usuario } = state.user
+    const token = state.token
+
+    const res = await fetch(`${API_BASE_URL}/metas.php?id_usuario=${id_usuario}&id=${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ monto_actual: goal.saved + amount }),
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al abonar a la meta')
+    }
+
+    await loadUserData(id_usuario, token)
+  }, [state.user, state.token, state.goals, loadUserData])
+
+  const removeGoal = useCallback(async (id: string) => {
+    if (!state.user || !state.token) return
+    const { id_usuario } = state.user
+    const token = state.token
+
+    const res = await fetch(`${API_BASE_URL}/metas.php?id_usuario=${id_usuario}&id=${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Error al eliminar la meta')
+    }
+
+    await loadUserData(id_usuario, token)
+  }, [state.user, state.token, loadUserData])
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE)
     try {
@@ -413,6 +509,9 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       updateEssentials,
       addExpense,
       removeExpense,
+      addGoal,
+      contributeToGoal,
+      removeGoal,
       reset,
     }),
     [
@@ -426,6 +525,9 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       updateEssentials,
       addExpense,
       removeExpense,
+      addGoal,
+      contributeToGoal,
+      removeGoal,
       reset,
     ],
   )

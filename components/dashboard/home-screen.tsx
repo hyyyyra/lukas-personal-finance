@@ -7,18 +7,23 @@ import { AddFixedExpenseDialog } from '@/components/dashboard/add-fixed-expense-
 import { BudgetOverview } from '@/components/dashboard/budget-overview'
 import { EditableStatCard } from '@/components/dashboard/editable-stat-card'
 import { ExpenseList } from '@/components/dashboard/expense-list'
+import { MonthlyHistory } from '@/components/dashboard/monthly-history'
+import { SavingsGoals } from '@/components/dashboard/savings-goals'
 import { LukasLogo } from '@/components/lukas-logo'
 import {
   type EssentialCategory,
   type EssentialItem,
   FIXED_BUDGET_PERIOD,
+  currentPeriod,
   expensesInPeriod,
   formatCLP,
+  isPaidThisMonth,
   monthlyDisposable,
   sumEssentialItems,
   totalSpent,
 } from '@/lib/finance'
 import { useLukas } from '@/lib/use-lukas-store'
+import { cn } from '@/lib/utils'
 
 function makeEssentialItemId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -31,14 +36,19 @@ export function HomeScreen() {
     user,
     essentials,
     expenses,
+    goals,
     addExpense,
     removeExpense,
     updateEssentials,
+    addGoal,
+    contributeToGoal,
+    removeGoal,
     logout,
   } = useLukas()
 
   const [addOpen, setAddOpen] = useState(false)
   const [addFixedOpen, setAddFixedOpen] = useState(false)
+  const [view, setView] = useState<'movimientos' | 'resumen'>('movimientos')
 
   const periodExpenses = useMemo(
     () => expensesInPeriod(expenses, FIXED_BUDGET_PERIOD),
@@ -61,6 +71,7 @@ export function HomeScreen() {
         label: item.label,
         amount: item.amount,
         category: item.category,
+        paidPeriod: null,
       },
     ]
     await updateEssentials({
@@ -77,6 +88,19 @@ export function HomeScreen() {
       essentialItems: newItems,
       essentialExpenses: sumEssentialItems(newItems),
     })
+  }
+
+  async function toggleFixedPaid(id: string) {
+    const newItems = essentials.essentialItems.map((it) =>
+      it.id === id
+        ? { ...it, paidPeriod: isPaidThisMonth(it) ? null : currentPeriod() }
+        : it,
+    )
+    try {
+      await updateEssentials({ ...essentials, essentialItems: newItems })
+    } catch (error) {
+      console.error('Error al cambiar estado de pago:', error)
+    }
   }
 
   return (
@@ -136,6 +160,14 @@ export function HomeScreen() {
               </span>
             </p>
 
+            {/* Metas de ahorro con nombre y progreso */}
+            <SavingsGoals
+              goals={goals}
+              onAdd={addGoal}
+              onContribute={contributeToGoal}
+              onRemove={removeGoal}
+            />
+
             {/* Botón inline (solo desktop) */}
             <button
               type="button"
@@ -147,24 +179,51 @@ export function HomeScreen() {
             </button>
           </div>
 
-          {/* Columna derecha: movimientos */}
+          {/* Columna derecha: movimientos / resumen mensual */}
           <section className="mt-8 lg:mt-0">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-serif text-xl text-foreground lg:text-2xl">
-                Listado de gastos
+                {view === 'movimientos' ? 'Listado de gastos' : 'Resumen mensual'}
               </h2>
-              <span className="text-xs font-medium text-muted-foreground">
-                {periodExpenses.length + (essentials.essentialItems?.length || 0)}{' '}
-                registros
-              </span>
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setView('movimientos')}
+                  className={cn(
+                    'rounded-lg px-3 py-1.5 transition-colors',
+                    view === 'movimientos'
+                      ? 'bg-primary font-semibold text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  Movimientos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('resumen')}
+                  className={cn(
+                    'rounded-lg px-3 py-1.5 transition-colors',
+                    view === 'resumen'
+                      ? 'bg-primary font-semibold text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  Resumen
+                </button>
+              </div>
             </div>
-            <ExpenseList
-              expenses={periodExpenses}
-              essentialItems={essentials.essentialItems}
-              onRemove={removeExpense}
-              onRemoveFixed={removeFixedExpense}
-              onAddFixed={() => setAddFixedOpen(true)}
-            />
+            {view === 'movimientos' ? (
+              <ExpenseList
+                expenses={periodExpenses}
+                essentialItems={essentials.essentialItems}
+                onRemove={removeExpense}
+                onRemoveFixed={removeFixedExpense}
+                onAddFixed={() => setAddFixedOpen(true)}
+                onTogglePaidFixed={toggleFixedPaid}
+              />
+            ) : (
+              <MonthlyHistory expenses={expenses} essentials={essentials} />
+            )}
           </section>
         </div>
       </div>
