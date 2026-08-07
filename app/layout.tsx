@@ -17,11 +17,41 @@ const fraunces = Fraunces({
   display: 'swap',
 })
 
+const SITE_URL = 'https://lukas-personal-finance.vercel.app'
+const TITLE = 'Lukas — Ordena tus lucas'
+const DESCRIPTION =
+  'Presupuesto mensual en pesos chilenos: registra tus gastos, marca tus cuentas pagadas y avanza tus metas de ahorro. Claro, rápido y sin conectar tu banco.'
+
 export const metadata: Metadata = {
-  title: 'Lukas · Finanzas personales',
-  description:
-    'Lukas te ayuda a gestionar tus finanzas personales de forma inteligente, en pesos chilenos.',
-  generator: 'v0.app',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: TITLE,
+    template: '%s · Lukas',
+  },
+  description: DESCRIPTION,
+  applicationName: 'Lukas',
+  keywords: [
+    'finanzas personales Chile',
+    'presupuesto en pesos chilenos',
+    'app de ahorro Chile',
+    'control de gastos',
+    'ordenar las lucas',
+  ],
+  openGraph: {
+    type: 'website',
+    locale: 'es_CL',
+    url: SITE_URL,
+    siteName: 'Lukas',
+    title: TITLE,
+    description:
+      'Tu plata, clara: presupuesto mensual, gastos fijos al día y metas de ahorro. 100% en pesos chilenos.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description:
+      'Tu plata, clara: presupuesto mensual, gastos fijos al día y metas de ahorro. 100% en pesos chilenos.',
+  },
 }
 
 export const viewport: Viewport = {
