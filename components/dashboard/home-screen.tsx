@@ -14,7 +14,7 @@ import {
   FIXED_BUDGET_PERIOD,
   expensesInPeriod,
   formatCLP,
-  monthlyBudgetCap,
+  monthlyDisposable,
   sumEssentialItems,
   totalSpent,
 } from '@/lib/finance'
@@ -132,7 +132,7 @@ export function HomeScreen() {
             <p className="mt-3 text-center text-xs text-muted-foreground lg:mt-4">
               Disponible mensual:{' '}
               <span className="font-medium text-foreground">
-                {formatCLP(Math.max(0, monthlyBudgetCap(essentials) - spent))}
+                {formatCLP(Math.max(0, monthlyDisposable(essentials) - spent))}
               </span>
             </p>
 

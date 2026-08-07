@@ -5,7 +5,7 @@ import {
   type EssentialData,
   FIXED_BUDGET_PERIOD,
   formatCLP,
-  monthlyBudgetCap,
+  monthlyDisposable,
 } from '@/lib/finance'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +16,7 @@ export function BudgetOverview({
   essentials: EssentialData
   spent: number
 }) {
-  const budget = monthlyBudgetCap(essentials)
+  const budget = monthlyDisposable(essentials)
   const remaining = budget - spent
   const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0
   const overBudget = remaining < 0
