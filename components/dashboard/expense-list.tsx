@@ -12,6 +12,7 @@ import {
   Heart,
   Home,
   Keyboard,
+  Loader2,
   Package,
   Plus,
   ReceiptText,
@@ -83,12 +84,30 @@ export function ExpenseList({
 }: {
   expenses: Expense[]
   essentialItems?: EssentialItem[]
-  onRemove: (id: string) => void
-  onRemoveFixed: (id: string) => void
+  onRemove: (id: string) => Promise<void>
+  onRemoveFixed: (id: string) => Promise<void>
   onAddFixed: () => void
-  onTogglePaidFixed: (id: string) => void
+  onTogglePaidFixed: (id: string) => Promise<void>
 }) {
   const [filter, setFilter] = useState<'todos' | 'variables' | 'fijos'>('todos')
+  // Ids con una acción en curso: da feedback inmediato y evita doble click
+  // mientras se espera la respuesta del servidor.
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+
+  async function withPending(id: string, action: () => Promise<void>) {
+    setPendingIds((prev) => new Set(prev).add(id))
+    try {
+      await action()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
 
   const hasVariables = expenses.length > 0
   const hasFijos = essentialItems.length > 0
@@ -197,10 +216,14 @@ export function ExpenseList({
           essentialItems.map((item) => {
             const Icon = ESSENTIAL_CATEGORY_ICON[item.category] ?? Package
             const paid = isPaidThisMonth(item)
+            const isPending = pendingIds.has(item.id)
             return (
               <li
                 key={`fijo-${item.id}`}
-                className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-3 shadow-2xs"
+                className={cn(
+                  'group flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-3 shadow-2xs transition-opacity',
+                  isPending && 'opacity-60',
+                )}
               >
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Icon className="size-5" />
@@ -223,7 +246,8 @@ export function ExpenseList({
                 </span>
                 <button
                   type="button"
-                  onClick={() => onTogglePaidFixed(item.id)}
+                  onClick={() => withPending(item.id, () => onTogglePaidFixed(item.id))}
+                  disabled={isPending}
                   aria-pressed={paid}
                   aria-label={
                     paid
@@ -232,22 +256,33 @@ export function ExpenseList({
                   }
                   title={paid ? 'Pagado este mes (toca para desmarcar)' : 'Marcar como pagado'}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors',
+                    'inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors disabled:cursor-wait',
                     paid
                       ? 'border-accent/30 bg-accent/15 text-accent'
                       : 'border-border bg-secondary text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
-                  {paid ? <Check className="size-3" /> : <Clock className="size-3" />}
+                  {isPending ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : paid ? (
+                    <Check className="size-3" />
+                  ) : (
+                    <Clock className="size-3" />
+                  )}
                   {paid ? 'Pagado' : 'Pendiente'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => onRemoveFixed(item.id)}
+                  onClick={() => withPending(item.id, () => onRemoveFixed(item.id))}
+                  disabled={isPending}
                   aria-label={`Eliminar ${item.label}`}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-wait"
                 >
-                  <Trash2 className="size-4" />
+                  {isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
                 </button>
               </li>
             )
@@ -268,10 +303,14 @@ export function ExpenseList({
         {(filter === 'todos' || filter === 'variables') &&
           expenses.map((expense) => {
             const Icon = CATEGORY_ICON[expense.category]
+            const isPending = pendingIds.has(expense.id)
             return (
               <li
                 key={expense.id}
-                className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+                className={cn(
+                  'group flex items-center gap-3 rounded-2xl border border-border bg-card p-3 transition-opacity',
+                  isPending && 'opacity-60',
+                )}
               >
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground">
                   <Icon className="size-5" />
@@ -291,11 +330,16 @@ export function ExpenseList({
                 </span>
                 <button
                   type="button"
-                  onClick={() => onRemove(expense.id)}
+                  onClick={() => withPending(expense.id, () => onRemove(expense.id))}
+                  disabled={isPending}
                   aria-label={`Eliminar ${expense.title}`}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-wait"
                 >
-                  <Trash2 className="size-4" />
+                  {isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
                 </button>
               </li>
             )

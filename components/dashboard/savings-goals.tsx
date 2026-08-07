@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, PiggyBank, Plus, Target, Trash2 } from 'lucide-react'
+import { Check, Loader2, PiggyBank, Plus, Target, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -21,6 +21,18 @@ export function SavingsGoals({
 }) {
   const [newOpen, setNewOpen] = useState(false)
   const [contributeGoal, setContributeGoal] = useState<SavingsGoal | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
+  async function handleRemove(id: string) {
+    setRemovingId(id)
+    try {
+      await onRemove(id)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setRemovingId(null)
+    }
+  }
 
   return (
     <section className="mt-5 rounded-2xl border border-border bg-card p-4">
@@ -54,8 +66,9 @@ export function SavingsGoals({
             const pct = goal.target > 0 ? Math.min(100, (goal.saved / goal.target) * 100) : 0
             const remaining = Math.max(0, goal.target - goal.saved)
             const done = remaining === 0
+            const isRemoving = removingId === goal.id
             return (
-              <li key={goal.id}>
+              <li key={goal.id} className={cn('transition-opacity', isRemoving && 'opacity-60')}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-medium text-foreground">
                     {goal.name}
@@ -65,18 +78,24 @@ export function SavingsGoals({
                       <button
                         type="button"
                         onClick={() => setContributeGoal(goal)}
-                        className="rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground transition-colors hover:bg-muted"
+                        disabled={isRemoving}
+                        className="rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground transition-colors hover:bg-muted disabled:cursor-wait"
                       >
                         + Abonar
                       </button>
                     )}
                     <button
                       type="button"
-                      onClick={() => onRemove(goal.id).catch(console.error)}
+                      onClick={() => handleRemove(goal.id)}
+                      disabled={isRemoving}
                       aria-label={`Eliminar meta ${goal.name}`}
-                      className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-wait"
                     >
-                      <Trash2 className="size-3.5" />
+                      {isRemoving ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-3.5" />
+                      )}
                     </button>
                   </div>
                 </div>

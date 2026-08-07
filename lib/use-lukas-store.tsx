@@ -12,6 +12,7 @@ import {
   DEFAULT_ESSENTIALS,
   FIXED_BUDGET_PERIOD,
   type EssentialData,
+  type EssentialItem,
   type Expense,
   type LukasState,
   type SavingsGoal,
@@ -30,6 +31,61 @@ const INITIAL_STATE: LukasState = {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+
+// --- Mapeos de la respuesta cruda del backend a los tipos del frontend.
+// Se reutilizan tanto en la carga inicial como en cada mutación, para poder
+// actualizar el estado local con la respuesta de la propia escritura en vez
+// de tener que volver a pedir todo de nuevo.
+
+function mapEssentialItem(item: any): EssentialItem {
+  return {
+    id: String(item.id_gastoindispensable),
+    label: item.etiqueta,
+    amount: Number(item.monto),
+    category: item.categoria || 'otros',
+    paidPeriod: item.pagado_periodo ?? null,
+  }
+}
+
+function mapEssentialsPayload(data: any): {
+  onboardingComplete: boolean
+  essentials: EssentialData
+} {
+  if (!data?.perfil) {
+    return { onboardingComplete: false, essentials: DEFAULT_ESSENTIALS }
+  }
+  return {
+    onboardingComplete: true,
+    essentials: {
+      monthlyIncome: Number(data.perfil.ingreso_mensual),
+      essentialExpenses: Number(data.perfil.total_gastos_indispensables),
+      baseSavings: Number(data.perfil.ahorro_base),
+      budgetPeriod: FIXED_BUDGET_PERIOD,
+      essentialItems: (data.gastos_indispensables || []).map(mapEssentialItem),
+    },
+  }
+}
+
+function mapExpense(g: any): Expense {
+  return {
+    id: String(g.id_gastosvariables),
+    title: g.etiqueta,
+    amount: Number(g.monto),
+    category: g.categoria,
+    method: g.metodo,
+    createdAt: g.created_at,
+  }
+}
+
+function mapGoal(m: any): SavingsGoal {
+  return {
+    id: String(m.id_meta),
+    name: m.nombre,
+    target: Number(m.monto_objetivo),
+    saved: Number(m.monto_actual),
+    createdAt: m.created_at,
+  }
+}
 
 interface LukasContextValue extends LukasState {
   hydrated: boolean
@@ -64,75 +120,41 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<LukasState>(INITIAL_STATE)
   const [hydrated, setHydrated] = useState(false)
 
-  // Cargar datos del usuario desde la base de datos
+  // Carga completa desde el backend. Solo se usa al iniciar sesión o al
+  // rehidratar la app — las mutaciones (agregar/quitar/editar) NO la llaman,
+  // actualizan el estado directamente con la respuesta de su propia escritura.
   const loadUserData = useCallback(async (id_usuario: number, token: string) => {
     const authHeaders = { Authorization: `Bearer ${token}` }
     try {
-      // 1. Obtener perfil financiero y gastos indispensables
-      const resEssentials = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
-        headers: authHeaders,
-      })
-      let onboardingComplete = false
-      let essentials = DEFAULT_ESSENTIALS
+      // Las 3 lecturas son independientes entre sí: se piden en paralelo en
+      // vez de una tras otra, para no sumar sus latencias.
+      const [resEssentials, resExpenses, resGoals] = await Promise.all([
+        fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
+          headers: authHeaders,
+        }),
+        fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}`, {
+          headers: authHeaders,
+        }),
+        fetch(`${API_BASE_URL}/metas.php?id_usuario=${id_usuario}`, {
+          headers: authHeaders,
+        }).catch(() => null),
+      ])
 
-      if (resEssentials.ok) {
-        const data = await resEssentials.json()
-        if (data.perfil) {
-          onboardingComplete = true
-          essentials = {
-            monthlyIncome: Number(data.perfil.ingreso_mensual),
-            essentialExpenses: Number(data.perfil.total_gastos_indispensables),
-            baseSavings: Number(data.perfil.ahorro_base),
-            budgetPeriod: FIXED_BUDGET_PERIOD,
-            essentialItems: (data.gastos_indispensables || []).map((item: any) => ({
-              id: String(item.id_gastoindispensable),
-              label: item.etiqueta,
-              amount: Number(item.monto),
-              category: item.categoria || 'otros',
-              paidPeriod: item.pagado_periodo ?? null,
-            })),
-          }
-        }
-      }
+      const { onboardingComplete, essentials } = resEssentials.ok
+        ? mapEssentialsPayload(await resEssentials.json())
+        : { onboardingComplete: false, essentials: DEFAULT_ESSENTIALS }
 
-      // 2. Obtener gastos variables
       let expenses: Expense[] = []
-      const resExpenses = await fetch(`${API_BASE_URL}/gastos.php?id_usuario=${id_usuario}`, {
-        headers: authHeaders,
-      })
       if (resExpenses.ok) {
         const data = await resExpenses.json()
-        if (data.gastos) {
-          expenses = data.gastos.map((g: any) => ({
-            id: String(g.id_gastosvariables),
-            title: g.etiqueta,
-            amount: Number(g.monto),
-            category: g.categoria,
-            method: g.metodo,
-            createdAt: g.created_at,
-          }))
-        }
+        expenses = (data.gastos || []).map(mapExpense)
       }
 
-      // 3. Obtener metas de ahorro (tolerante a fallos: metas vacías si el
-      // endpoint no está disponible aún)
+      // Tolerante a fallos: metas vacías si el endpoint no está disponible.
       let goals: SavingsGoal[] = []
-      try {
-        const resGoals = await fetch(`${API_BASE_URL}/metas.php?id_usuario=${id_usuario}`, {
-          headers: authHeaders,
-        })
-        if (resGoals.ok) {
-          const data = await resGoals.json()
-          goals = (data.metas || []).map((m: any) => ({
-            id: String(m.id_meta),
-            name: m.nombre,
-            target: Number(m.monto_objetivo),
-            saved: Number(m.monto_actual),
-            createdAt: m.created_at,
-          }))
-        }
-      } catch {
-        // no-op: sin metas si el endpoint falla
+      if (resGoals?.ok) {
+        const data = await resGoals.json()
+        goals = (data.metas || []).map(mapGoal)
       }
 
       setState((prev) => ({
@@ -302,8 +324,11 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
     setState(INITIAL_STATE)
   }, [])
 
-  const completeOnboarding = useCallback(async (essentials: EssentialData) => {
-    if (!state.user || !state.token) return
+  // Cuerpo compartido por completeOnboarding/updateEssentials: guarda el
+  // perfil + la lista de ítems, y devuelve el estado ya mapeado desde la
+  // respuesta del propio POST (sin volver a pedirlo con un GET aparte).
+  const saveEssentials = useCallback(async (essentials: EssentialData) => {
+    if (!state.user || !state.token) return null
     const id_usuario = state.user.id_usuario
     const token = state.token
 
@@ -334,44 +359,20 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al guardar los datos esenciales')
     }
 
-    await loadUserData(id_usuario, token)
-    setState((prev) => ({ ...prev, essentials, onboardingComplete: true }))
-  }, [state.user, state.token, loadUserData])
+    return mapEssentialsPayload(await res.json())
+  }, [state.user, state.token])
+
+  const completeOnboarding = useCallback(async (essentials: EssentialData) => {
+    const result = await saveEssentials(essentials)
+    if (!result) return
+    setState((prev) => ({ ...prev, essentials: result.essentials, onboardingComplete: true }))
+  }, [saveEssentials])
 
   const updateEssentials = useCallback(async (essentials: EssentialData) => {
-    if (!state.user || !state.token) return
-    const id_usuario = state.user.id_usuario
-    const token = state.token
-
-    const body = {
-      ingreso_mensual: essentials.monthlyIncome,
-      total_gastos_indispensables: essentials.essentialExpenses,
-      ahorro_base: essentials.baseSavings,
-      periodo_presupuesto: FIXED_BUDGET_PERIOD,
-      gastos_indispensables: essentials.essentialItems.map((item) => ({
-        etiqueta: item.label,
-        monto: item.amount,
-        categoria: item.category,
-        pagado_periodo: item.paidPeriod ?? null,
-      })),
-    }
-
-    const res = await fetch(`${API_BASE_URL}/usuario/esenciales.php?id_usuario=${id_usuario}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      throw new Error(errData.error || 'Error al actualizar los datos esenciales')
-    }
-
-    await loadUserData(id_usuario, token)
-  }, [state.user, state.token, loadUserData])
+    const result = await saveEssentials(essentials)
+    if (!result) return
+    setState((prev) => ({ ...prev, essentials: result.essentials }))
+  }, [saveEssentials])
 
   const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
     if (!state.user || !state.token) return
@@ -399,8 +400,10 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al guardar el gasto')
     }
 
-    await loadUserData(id_usuario, token)
-  }, [state.user, state.token, loadUserData])
+    const data = await res.json()
+    const created = mapExpense(data.gasto)
+    setState((prev) => ({ ...prev, expenses: [created, ...prev.expenses] }))
+  }, [state.user, state.token])
 
   const removeExpense = useCallback(async (id: string) => {
     if (!state.user || !state.token) return
@@ -419,8 +422,8 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al eliminar el gasto')
     }
 
-    await loadUserData(id_usuario, token)
-  }, [state.user, state.token, loadUserData])
+    setState((prev) => ({ ...prev, expenses: prev.expenses.filter((e) => e.id !== id) }))
+  }, [state.user, state.token])
 
   const addGoal = useCallback(async (name: string, target: number) => {
     if (!state.user || !state.token) return
@@ -441,8 +444,10 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al crear la meta de ahorro')
     }
 
-    await loadUserData(id_usuario, token)
-  }, [state.user, state.token, loadUserData])
+    const data = await res.json()
+    const created = mapGoal(data.meta)
+    setState((prev) => ({ ...prev, goals: [...prev.goals, created] }))
+  }, [state.user, state.token])
 
   const contributeToGoal = useCallback(async (id: string, amount: number) => {
     if (!state.user || !state.token) return
@@ -465,8 +470,13 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al abonar a la meta')
     }
 
-    await loadUserData(id_usuario, token)
-  }, [state.user, state.token, state.goals, loadUserData])
+    const data = await res.json()
+    const updated = mapGoal(data.meta)
+    setState((prev) => ({
+      ...prev,
+      goals: prev.goals.map((g) => (g.id === id ? updated : g)),
+    }))
+  }, [state.user, state.token, state.goals])
 
   const removeGoal = useCallback(async (id: string) => {
     if (!state.user || !state.token) return
@@ -485,8 +495,8 @@ export function LukasProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errData.error || 'Error al eliminar la meta')
     }
 
-    await loadUserData(id_usuario, token)
-  }, [state.user, state.token, loadUserData])
+    setState((prev) => ({ ...prev, goals: prev.goals.filter((g) => g.id !== id) }))
+  }, [state.user, state.token])
 
   const reset = useCallback(() => {
     setState(INITIAL_STATE)
