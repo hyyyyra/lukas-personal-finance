@@ -20,6 +20,21 @@ build/
 dist/
 *.tsbuildinfo
 
+# PWA: artefactos generados por @ducanh2912/next-pwa (dest: public).
+# Se regeneran en cada build; no deben versionarse. Los assets estaticos
+# reales de public/ (si los hubiera) siguen versionandose normalmente.
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/worker-*.js
+public/worker-*.js.map
+public/swe-worker-*.js
+public/swe-worker-*.js.map
+public/fallback-*.js
+public/fallback-*.js.map
+public/precache.*.*.js
+
 # IDE, OS & Editor files
 .vscode/
 .idea/
