@@ -30,6 +30,17 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   applicationName: 'Lukas',
+  appleWebApp: {
+    capable: true,
+    title: 'Lukas',
+    statusBarStyle: 'default',
+  },
+  // Next 16 emite el estandar `mobile-web-app-capable`, pero iOS Safari antiguo
+  // (< 16.4) solo reconoce el legacy para "Agregar a inicio" en modo standalone.
+  // Lo agregamos explicitamente para maxima compatibilidad en iOS.
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+  },
   keywords: [
     'finanzas personales Chile',
     'presupuesto en pesos chilenos',
